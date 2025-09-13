@@ -300,7 +300,231 @@ Voice Input → STT Engine → NLU Parser → Command Interpreter
 
 ## 4. MVP Planning & Architecture Decisions
 
-### 4.1 Technology Research Phase (Week 0-1)
+### 4.1 Terminal Implementation Research Questions
+
+#### Fundamental Architecture Questions
+
+**1. Build vs. Fork vs. Overlay Decision**
+- What is the actual development effort for each approach?
+- Which approach provides the best control over user experience?
+- How do we maintain cross-platform consistency?
+- What are the long-term maintenance implications?
+
+**2. Technical Feasibility Analysis**
+- Can we reliably intercept and inject commands in existing terminals?
+- How do we capture terminal output without affecting performance?
+- Is it possible to maintain state across terminal sessions?
+- Can we implement voice control without modifying core terminal behavior?
+
+**3. Integration Complexity Assessment**
+- How do we handle different shell environments (bash, zsh, fish)?
+- Can we support terminal multiplexers (tmux, screen)?
+- How do we manage terminal-specific features and escape sequences?
+- What's the impact on existing developer workflows?
+
+#### Open Source Terminal Evaluation Questions
+
+**For Each Candidate (WezTerm, Alacritty, Kitty):**
+
+**Architecture & Extensibility**
+- Is the codebase modular enough for our extensions?
+- Are there existing plugin/extension mechanisms?
+- How active is the community and maintenance?
+- What's the learning curve for the core technology stack?
+
+**Feature Compatibility**
+- Does it support programmatic control?
+- Can we add overlay UI elements?
+- Is there an API for output capture?
+- How does it handle process management?
+
+**Performance & Resources**
+- What's the baseline memory/CPU usage?
+- How does it scale with multiple sessions?
+- What's the rendering performance impact?
+- Can it handle high-throughput output?
+
+#### Overlay Approach Research Questions
+
+**1. Technical Implementation**
+- How do we create a transparent overlay that doesn't interfere?
+- Can we use accessibility APIs for terminal interaction?
+- What's the best IPC mechanism for terminal communication?
+- How do we handle focus and input routing?
+
+**2. Platform-Specific Considerations**
+- **macOS**: Can we use Accessibility APIs reliably?
+- **Linux**: X11 vs Wayland implications?
+- How do we ensure consistent behavior across platforms?
+- What are the permission/security requirements?
+
+**3. User Experience Impact**
+- Does overlay approach introduce noticeable latency?
+- How do we handle terminal resizing and window management?
+- Can we maintain visual consistency with native terminal?
+- What happens when terminal is in fullscreen mode?
+
+#### Build-from-Scratch Considerations
+
+**1. Scope Assessment**
+- What's the minimum viable terminal emulator feature set?
+- Which terminal standards must we support (VT100, xterm, etc.)?
+- How much of POSIX PTY interface needs implementation?
+- Can we leverage existing libraries (like libvterm)?
+
+**2. Risk Analysis**
+- What are the unknown unknowns in terminal emulation?
+- How do we ensure compatibility with existing tools?
+- What's the testing burden for a custom terminal?
+- How long until we reach feature parity?
+
+### 4.2 Terminal Implementation Comparison Framework
+
+#### Approach Comparison Matrix
+
+| Criteria | Build from Scratch | Fork Open Source | Overlay Approach |
+|----------|-------------------|------------------|------------------|
+| **Development Time** | 12-18 months | 3-6 months | 1-3 months |
+| **Control Level** | Complete | High | Medium |
+| **Maintenance Burden** | Very High | High | Low |
+| **Cross-Platform Complexity** | Very High | Medium | Medium |
+| **Risk Level** | Critical | Medium | Low |
+| **Innovation Potential** | Highest | High | Medium |
+| **Community Support** | None | Inherited | N/A |
+| **Testing Complexity** | Extreme | High | Medium |
+| **User Workflow Impact** | High | Medium | Minimal |
+| **Performance Overhead** | None | Minimal | Some |
+
+#### Decision Criteria Weights
+
+```yaml
+evaluation_weights:
+  time_to_market: 30%        # Critical for MVP
+  technical_risk: 25%        # Must be manageable
+  user_experience: 20%        # Core value prop
+  maintainability: 15%       # Long-term sustainability
+  innovation_potential: 10%  # Differentiation opportunity
+
+scoring_scale: 1-5 (1=worst, 5=best)
+```
+
+#### Prototype Validation Plan
+
+**Week 0-1: Research & Prototypes**
+1. **Overlay Prototype**
+   - Build minimal overlay using accessibility APIs
+   - Test command injection/output capture
+   - Measure latency and resource usage
+   - Success Criteria: <50ms overhead, reliable capture
+
+2. **Fork Investigation**
+   - Clone WezTerm repository
+   - Add minimal voice command hook
+   - Assess code modification complexity
+   - Success Criteria: <1 week to add basic feature
+
+3. **Build Assessment**
+   - Create minimal PTY handler
+   - Implement basic VT100 emulation
+   - Estimate full implementation scope
+   - Success Criteria: Realistic timeline under 6 months
+
+**Decision Point: End of Week 1**
+- Compare prototype results against criteria
+- Select approach based on evidence
+- Document decision rationale
+- Adjust timeline accordingly
+
+### 4.3 Research Experiments & Validation
+
+#### Experiment 1: Command Injection Test
+**Objective**: Validate ability to programmatically control terminal
+
+**Method**:
+1. Create test script with 10 common developer commands
+2. Attempt injection via each approach
+3. Measure success rate and latency
+4. Test error handling and recovery
+
+**Success Metrics**:
+- 100% command execution success
+- <50ms injection overhead
+- Graceful error handling
+- No terminal state corruption
+
+#### Experiment 2: Output Capture Test
+**Objective**: Validate reliable output capture for AI processing
+
+**Method**:
+1. Run commands with various output types (text, colors, progress bars)
+2. Capture and parse output
+3. Test with high-throughput scenarios (build logs)
+4. Verify ANSI escape sequence handling
+
+**Success Metrics**:
+- 100% output capture reliability
+- Correct ANSI sequence parsing
+- <100ms capture latency
+- Handle 10MB/s output streams
+
+#### Experiment 3: Cross-Platform Consistency
+**Objective**: Ensure identical behavior on macOS and Linux
+
+**Method**:
+1. Run identical test suite on both platforms
+2. Compare behavior, performance, and output
+3. Test platform-specific features
+4. Verify resource usage parity
+
+**Success Metrics**:
+- >95% behavioral consistency
+- <10% performance variance
+- Identical user experience
+- Similar resource footprint
+
+#### Experiment 4: Voice Integration Prototype
+**Objective**: Validate voice control feasibility
+
+**Method**:
+1. Implement basic voice activation
+2. Test command recognition accuracy
+3. Measure end-to-end latency
+4. Test "execute" safety mechanism
+
+**Success Metrics**:
+- >90% recognition accuracy
+- <500ms total latency
+- Zero false executions
+- Natural interaction flow
+
+### 4.4 Go/No-Go Decision Framework
+
+#### Critical Success Factors (Must Have)
+- [ ] Command injection works reliably
+- [ ] Output capture is complete and accurate
+- [ ] Cross-platform behavior is consistent
+- [ ] Performance overhead is acceptable (<100ms)
+- [ ] Voice integration is feasible
+
+#### Risk Thresholds (Abort if)
+- Development estimate exceeds 6 months for MVP
+- Performance overhead exceeds 200ms
+- Platform consistency cannot be achieved
+- Security vulnerabilities are discovered
+- User workflow disruption is significant
+
+#### Pivot Options
+1. **If fork is too complex**: Switch to overlay approach
+2. **If overlay has limitations**: Consider browser-based terminal
+3. **If voice is problematic**: Start with text commands
+4. **If cross-platform fails**: Focus on single platform first
+
+### 4.5 Terminal Selection Recommendations
+
+#### Recommended Approach: Phased Implementation
+**Phase 1 (MVP)**: Start with overlay approach for fastest time-to-market
+**Phase 2**: Migrate to forked open source terminal for better control
+**Phase 3**: Consider custom implementation if unique features require it
 
 #### Terminal Base Evaluation
 **Priority Options:**

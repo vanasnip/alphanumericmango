@@ -378,22 +378,55 @@ Voice Input → STT Engine → NLU Parser → Command Interpreter
 - What's the testing burden for a custom terminal?
 - How long until we reach feature parity?
 
+#### Control Threshold Analysis
+
+**1. Control vs Access Philosophy**
+- What's the minimum viable control point for reliable access?
+- Where can we trust existing terminal infrastructure?
+- What's the threshold where control becomes burden rather than benefit?
+- Can we achieve our goals through access alone, without control?
+
+**2. Layered Control Model Research**
+- **Terminal Layer**: Can we fully relinquish control to user's preferred terminal?
+- **Session Layer**: Is tmux universal enough to be our standardization point?
+- **Agent Layer**: Can agents remain completely terminal-agnostic?
+
+**3. tmux as Abstraction Layer**
+- Does tmux provide sufficient programmatic access for our needs?
+- Can tmux handle all required I/O capture and injection?
+- Is tmux adoption widespread enough to require as dependency?
+- What's the fallback strategy for non-tmux environments?
+
+**4. Terminal Agnosticism Validation**
+- Can we achieve 100% terminal independence via tmux layer?
+- What features absolutely require terminal-specific integration?
+- How do we handle terminal diversity (iTerm, Terminal.app, Alacritty, etc.)?
+- Can the agent layer truly remain unaware of terminal implementation?
+
+**5. Access Point Requirements**
+- **Essential Access**: What do we absolutely need to capture/inject?
+- **Nice-to-Have Access**: What would enhance UX but isn't critical?
+- **Unnecessary Control**: What terminal features can we completely ignore?
+- **Risk of Over-Engineering**: Where might we be solving non-problems?
+
 ### 4.2 Terminal Implementation Comparison Framework
 
 #### Approach Comparison Matrix
 
-| Criteria | Build from Scratch | Fork Open Source | Overlay Approach |
-|----------|-------------------|------------------|------------------|
-| **Development Time** | 12-18 months | 3-6 months | 1-3 months |
-| **Control Level** | Complete | High | Medium |
-| **Maintenance Burden** | Very High | High | Low |
-| **Cross-Platform Complexity** | Very High | Medium | Medium |
-| **Risk Level** | Critical | Medium | Low |
-| **Innovation Potential** | Highest | High | Medium |
-| **Community Support** | None | Inherited | N/A |
-| **Testing Complexity** | Extreme | High | Medium |
-| **User Workflow Impact** | High | Medium | Minimal |
-| **Performance Overhead** | None | Minimal | Some |
+| Criteria | Build from Scratch | Fork Open Source | Overlay Approach | tmux + Overlay |
+|----------|-------------------|------------------|------------------|---------------|
+| **Development Time** | 12-18 months | 3-6 months | 1-3 months | 1-2 months |
+| **Control Level** | Complete | High | Medium | Sufficient |
+| **Maintenance Burden** | Very High | High | Low | Very Low |
+| **Cross-Platform Complexity** | Very High | Medium | Medium | Low |
+| **Risk Level** | Critical | Medium | Low | Very Low |
+| **Innovation Potential** | Highest | High | Medium | Medium |
+| **Community Support** | None | Inherited | N/A | tmux ecosystem |
+| **Testing Complexity** | Extreme | High | Medium | Low |
+| **User Workflow Impact** | High | Medium | Minimal | None |
+| **Performance Overhead** | None | Minimal | Some | Minimal |
+| **Terminal Compatibility** | We control | Limited | Most | All tmux-compatible |
+| **User Terminal Choice** | Lost | Lost | Preserved | Fully preserved |
 
 #### Decision Criteria Weights
 
@@ -496,6 +529,29 @@ scoring_scale: 1-5 (1=worst, 5=best)
 - <500ms total latency
 - Zero false executions
 - Natural interaction flow
+
+#### Experiment 5: tmux Abstraction Layer Test
+**Objective**: Validate tmux as universal control point
+
+**Method**:
+1. Test tmux integration with 5+ different terminals
+2. Implement command injection via tmux send-keys
+3. Capture output via tmux capture-pane
+4. Test session persistence and recovery
+5. Measure performance overhead
+
+**Success Metrics**:
+- Works identically across all tested terminals
+- <20ms overhead for tmux operations
+- 100% output capture fidelity
+- Session recovery after terminal restart
+- No terminal-specific code required
+
+**Validation Questions**:
+- Can tmux provide all needed access without terminal control?
+- Does tmux standardization simplify or complicate architecture?
+- Is the tmux dependency acceptable to users?
+- What percentage of developers already have tmux installed?
 
 ### 4.4 Go/No-Go Decision Framework
 

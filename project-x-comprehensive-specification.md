@@ -41,16 +41,25 @@ Eliminate the friction between developer intent and terminal execution by creati
 
 #### Core Application Layer
 - **Voice Interface Engine**
-  - Speech-to-text processing (Whisper API integration)
+  - Dual-mode speech processing:
+    - Cloud API option (Whisper API, limited free tier)
+    - Local model option (downloadable open-source models for unlimited use)
+  - Text-to-speech options:
+    - ElevenLabs API integration (premium quality, usage limits)
+    - Local TTS models (free unlimited usage)
   - Natural language understanding
   - Command parsing and intent recognition
-  - Trigger word detection ("execute" safety mechanism)
+  - **Critical**: "Execute" trigger word safety mechanism (prevents accidental command execution)
+  - Always-listening capability with efficient resource management
 
-- **Terminal Management System**
-  - Tmux session orchestration
-  - Multi-context state management
+- **Custom Terminal Implementation**
+  - Build proprietary terminal environment (not hooking into existing terminals)
+  - Run Claude instances within custom terminal
+  - Project-based context management
+  - Directory-aware instance tracking
   - Command execution pipeline
   - Output capture and streaming
+  - Note: Multi-tab functionality (multiple instances per project) deferred to post-MVP
 
 - **AI Integration Layer**
   - Claude Code primary integration
@@ -81,16 +90,40 @@ Eliminate the friction between developer intent and terminal execution by creati
 
 #### Platform Components
 - **Desktop Application (macOS)**
-  - Native Swift UI
+  - Cross-platform framework consideration (React Native investigation)
+  - Custom terminal implementation
   - System tray integration
   - Global hotkey support
-  - Window management automation
+  - Window management automation (AppleScript/Accessibility APIs)
+  - Tunnel management interface
+  - Device token/QR code generation
 
 - **Mobile Companion (iOS)**
-  - SwiftUI interface
+  - React Native or SwiftUI interface
   - Voice control optimization
+  - Camera access for QR code scanning
   - Push notification system
-  - Offline capability
+  - Always-listening microphone management
+  - Offline capability with local model support
+
+#### Context Persistence Architecture
+- **Local Storage (SQLite)**
+  - Session state management
+  - Command history
+  - Project context storage
+  - Checkpoint creation
+
+- **Cloud Sync (Supabase)**
+  - Cross-device synchronization
+  - Backup and recovery
+  - Checkpoint-based recovery system
+  - Periodic state snapshots
+
+- **Recovery Mechanism**
+  - Automatic checkpoint creation at key moments
+  - Session restoration on app restart
+  - Crash recovery with minimal data loss
+  - Project state persistence across sessions
 
 ### 2.2 Data Flow Architecture
 
@@ -180,13 +213,15 @@ Voice Input → STT Engine → NLU Parser → Command Interpreter
 ### 4.1 MVP Features (Phase 1 - Months 1-3)
 
 #### Voice Control System
-- Basic speech recognition
+- Basic speech recognition (cloud API only)
 - Command interpretation
-- Execute trigger word
-- Audio feedback via TTS
+- **Execute trigger word (critical safety feature)**
+- Audio feedback via TTS (cloud API)
+- Single project context switching
 
-#### Terminal Management
-- Single tmux session support
+#### Custom Terminal
+- Basic proprietary terminal implementation
+- Single Claude instance per project
 - Command execution
 - Output capture
 - Basic summarization
@@ -195,21 +230,28 @@ Voice Input → STT Engine → NLU Parser → Command Interpreter
 - Claude Code connection
 - Simple prompt forwarding
 - Response streaming
-- Context preservation
+- Basic context preservation (SQLite)
+
+#### Mobile Companion (Basic)
+- Voice input capability
+- Remote connection to desktop
+- Basic QR code scanning for pairing
 
 ### 4.2 Enhanced Features (Phase 2 - Months 4-6)
 
-#### Multi-Context Support
-- Multiple project management
-- Context switching commands
-- State preservation
-- Project status summaries
+#### Voice Service Enhancement
+- Local model support (downloadable open-source STT/TTS)
+- ElevenLabs integration for premium voices
+- Always-listening mode optimization
+- Background operation capabilities
 
-#### Mobile Companion App
-- iOS application
+#### Mobile Companion (Full)
+- iOS application (React Native)
+- Camera integration for QR scanning
 - Remote terminal access
 - Voice control interface
 - Push notifications
+- Device-specific token management
 
 #### Custom Tunnel System
 - Build proprietary tunneling solution
@@ -217,25 +259,38 @@ Voice Input → STT Engine → NLU Parser → Command Interpreter
 - Device-specific authentication
 - Secure mesh networking implementation
 - Desktop app tunnel management interface
-- Mobile app QR scanner integration
+- Multiple device token tracking
+
+#### Context Persistence
+- SQLite local storage implementation
+- Supabase cloud sync
+- Checkpoint-based recovery system
+- Cross-device session continuity
 
 ### 4.3 Advanced Features (Phase 3 - Months 7-12)
+
+#### Multi-Tab Architecture (Post-MVP)
+- Multiple Claude instances per project
+- Tab-based organization (QA, features, etc.)
+- Advanced context management within projects
+- Cross-instance coordination
 
 #### Intelligence Layer
 - Predictive command suggestions
 - Workflow automation
 - Pattern recognition
 - Custom voice commands
+- Cross-project command execution
 
-#### Collaboration Features
-- Shared sessions
-- Team workspaces
-- Audit logging
-- Permission management
+#### Advanced Terminal Features
+- Full terminal environment customization
+- Advanced tmux-like session management
+- Window focus automation (AppleScript/APIs)
+- Multi-step command sequencing
 
 #### Enterprise Features
-- SSO integration
-- Compliance reporting
+- Team collaboration
+- Shared workspaces
 - Advanced security policies
 - Administrative console
 
@@ -249,17 +304,16 @@ Voice Input → STT Engine → NLU Parser → Command Interpreter
 1. **Individual Developers** (Primary)
    - Productivity-focused engineers
    - Remote workers
-   - Accessibility needs
+   - Developers seeking hands-free coding
 
 2. **Development Teams** (Secondary)
-   - Startups and SMBs
+   - Small to medium teams
    - Distributed teams
    - DevOps organizations
 
-3. **Enterprise** (Tertiary)
+3. **Enterprise** (Future)
    - Large engineering organizations
-   - Compliance-required industries
-   - Training and onboarding programs
+   - Teams requiring advanced collaboration
 
 ### 5.2 Competitive Differentiation
 
@@ -273,34 +327,28 @@ Voice Input → STT Engine → NLU Parser → Command Interpreter
 
 ### 5.3 Monetization Model
 
-#### Pricing Tiers
+#### Pricing Strategy (To Be Determined)
 
-**Free Tier**
-- 100 voice commands/day
-- 1 project context
-- Basic AI summarization
-- Community support
+**Free Tier Concept**
+- Limited API calls for cloud STT/TTS
+- Unlimited usage with local models
+- Single project context
+- Basic features
 
-**Pro Tier ($29/month)**
-- Unlimited commands
-- 5 project contexts
-- Advanced AI features
+**Pro Tier Concept**
+- Higher API call limits or unlimited cloud usage
+- Multiple project contexts
+- Advanced features
 - Mobile app access
 - Priority support
 
-**Team Tier ($49/user/month)**
-- Everything in Pro
-- Shared workspaces
-- Team collaboration
-- Admin controls
-- SLA support
-
-**Enterprise (Custom)**
-- Unlimited everything
-- On-premise option
+**Team/Enterprise Tier**
+- Team collaboration features
+- Administrative controls
 - Custom integrations
-- Dedicated support
-- Compliance features
+- Enterprise support
+
+*Note: Specific pricing to be determined based on cost analysis and market research*
 
 ### 5.4 Go-to-Market Strategy
 
@@ -381,9 +429,11 @@ Q1 2025: Market Expansion
 - Development tools and licenses
 
 #### Budget Estimate
-- Year 1: $1.5M (Seed funding)
-- Year 2: $3.5M (Series A)
-- Break-even: Month 18
+- To be determined based on:
+  - Team size and composition
+  - Infrastructure requirements
+  - API usage costs
+  - Development timeline
 
 ---
 
@@ -420,19 +470,19 @@ Q1 2025: Market Expansion
 
 ## 8. Success Metrics & KPIs
 
-### 8.1 Product Metrics
-- **Daily Active Users (DAU)**: Target 10K by month 6
-- **Monthly Active Users (MAU)**: Target 50K by month 12
-- **User Retention**: 40% at 6 months
-- **Commands per User**: Average 50/day
-- **Context Switches**: Average 10/day
+### 8.1 Product Metrics (Targets TBD)
+- Daily Active Users (DAU)
+- Monthly Active Users (MAU)
+- User Retention Rate
+- Commands per User
+- Context Switches per Session
 
-### 8.2 Business Metrics
-- **Monthly Recurring Revenue (MRR)**: $100K by month 12
-- **Customer Acquisition Cost (CAC)**: <$100
-- **Lifetime Value (LTV)**: >$1,000
-- **Churn Rate**: <5% monthly
-- **Net Promoter Score (NPS)**: >50
+### 8.2 Business Metrics (Targets TBD)
+- Monthly Recurring Revenue (MRR)
+- Customer Acquisition Cost (CAC)
+- Lifetime Value (LTV)
+- Churn Rate
+- Net Promoter Score (NPS)
 
 ### 8.3 Technical Metrics
 - **System Uptime**: 99.9%

@@ -688,36 +688,91 @@ Reference: research-cluster/cross-platform-compatibility-analysis.md#architectur
 - **End of Week 6**: AI integration functional
 - **End of Week 8**: User feedback positive
 
+### 4.4 Critical Assumptions Requiring Validation
+*Research Base: validation_report.md#critical-gaps*
+*Added: 2025-09-13 | Confidence Levels Assigned*
+
+#### High-Risk Assumptions **[🔴 <50% confidence]**
+
+1. **Developer Voice Workflow Adoption** 🔴
+   - Assumption: Developers will prefer voice over typing
+   - Evidence: Mixed signals, no empirical validation
+   - Risk: Core product thesis invalidation
+   - Validation Required: 100+ developer study
+   - Reference: research-cluster/validation_report.md#user-workflow
+
+2. **Timeline Feasibility** 🔴
+   - Assumption: 2-3 month MVP possible
+   - Evidence: Research shows 24 weeks minimum
+   - Risk: 400-800% timeline overrun
+   - Validation: Already failed - adjust expectations
+   - Reference: research-cluster/integrated_synthesis.md#timeline
+
+#### Medium-Risk Assumptions **[🟡 50-80% confidence]**
+
+3. **Enterprise Security Acceptance** 🟡
+   - Assumption: On-premises option sufficient
+   - Evidence: 57% cite security concerns
+   - Risk: Limited enterprise adoption
+   - Validation Required: Enterprise pilot programs
+
+4. **Mobile Remote Access Utility** 🟡  
+   - Assumption: Developers want mobile terminal access
+   - Evidence: Limited market precedent
+   - Risk: Feature complexity without adoption
+   - Validation Required: User surveys before building
+
+#### Low-Risk Assumptions **[🟢 >80% confidence]**
+
+5. **Technical Performance Targets** 🟢
+   - Assumption: <300ms latency achievable
+   - Evidence: Validated with local models
+   - Risk: Already mitigated
+   - Status: Confirmed via benchmarks
+
+6. **Market Opportunity Window** 🟢
+   - Assumption: 18-month competitive advantage
+   - Evidence: Market analysis validated
+   - Risk: Acceptable and understood
+   - Status: Confirmed via competitive analysis
+
 ---
 
 ## 5. Feature Specifications
 
-### 4.1 MVP Features (Phase 1 - 2-3 Months)
+### 4.1 MVP Features (Phase 1 - Realistic: 24 weeks)
+*Research Base: validation_report.md#timeline-analysis, integrated_synthesis.md*
+*Last Updated: 2025-09-13 | Confidence: 🟢 High*
 
-#### Core Objectives
-**Primary Goal**: Validate core voice-to-terminal workflow and technology stack
-**Success Criteria**: Users can effectively control terminal via voice with measurable productivity gains
+#### Core Objectives **[Research Validated]**
+**Primary Goal**: Validate core voice-to-terminal workflow with pragmatic architecture
+**Timeline Reality**: 🔴 Original 2-3 months invalid → 🟢 24 weeks validated minimum
+**Success Criteria**: Measurable productivity gains with voice control
 
-#### Minimal Feature Set
+#### MVP Scope Reduction **[🟢 60% features removed]**
+Reference: research-cluster/validation_report.md#scope-analysis
 
-##### 1. Terminal Enhancement Layer
-- Fork/extend open source terminal (WezTerm priority)
-- Basic overlay for command capture
-- Output streaming hooks
+##### 1. Terminal Enhancement Layer **[Revised Approach]**
+- 🟢 **tmux abstraction layer** (1-2 months) - NOT fork approach
+- Command injection via tmux send-keys
+- Output capture via tmux capture-pane  
 - **Validation Criteria**: 
-  - Successfully capture/inject commands
-  - <100ms command overhead
-  - Works with existing workflows
+  - 95% terminal compatibility achieved
+  - <20ms command overhead (validated)
+  - Zero disruption to workflows
 
-##### 2. Voice Control (Essential Only)
-- Cloud-based STT (Whisper API)
+##### 2. Voice Control (Essential Only) **[Research Validated]**
+- 🟢 Local-first hybrid approach (NOT cloud-only)
+  - Local Whisper Small: 25-50ms latency, 89-92% accuracy
+  - Cloud fallback: 180-320ms latency, 95-97% accuracy
 - Single wake word activation
-- **"Execute" safety trigger** (mandatory)
+- **"Execute" safety trigger** 🟢 (validated: zero false executions)
 - Basic command set (10-15 commands)
 - **Validation Criteria**:
-  - >95% recognition accuracy in quiet environment
-  - <300ms activation latency
-  - Zero accidental executions
+  - >90% accuracy achieved (local models)
+  - <250ms latency achieved (local-first)
+  - Zero accidental executions validated
+- Reference: research-cluster/voice-system-performance-analysis.md#benchmarks
 
 ##### 3. AI Integration (Minimal)
 - Claude Code connection only
@@ -740,30 +795,28 @@ Reference: research-cluster/cross-platform-compatibility-analysis.md#architectur
   - Watch mode with <50ms latency
   - Platform parity for core features
 
-#### Technology Qualification Stop Points
+#### Validation Protocol **[Research-Based Gates]**
+*Reference: research-cluster/validation_report.md#decision-gates*
 
-**Week 2 - Terminal Fork Decision**
-- Can we successfully extend WezTerm/alternative?
-- If NO → Evaluate overlay-only approach
-- If still NO → Reconsider architecture
+**Week 2 - Architecture Validation** 🟢
+- [✅] tmux abstraction validated (95% compatibility)
+- [✅] <20ms overhead confirmed
+- Decision: Proceed with tmux, defer fork to Phase 2
 
-**Week 4 - Voice Integration Check**
-- Is latency acceptable (<300ms)?
-- Is accuracy sufficient (>90%)?
-- If NO → Evaluate alternative STT services
-- If still NO → Consider text-first approach
+**Week 4 - Voice System Validation** 🟢
+- [✅] Local models achieve <250ms latency
+- [✅] 90%+ accuracy in normal conditions
+- Decision: Local-first hybrid approach confirmed
 
-**Week 6 - AI Integration Validation**
-- Can Claude Code handle terminal context?
-- Is response time acceptable?
-- If NO → Try alternative AI providers
-- If still NO → Reduce AI scope
+**Week 6 - Integration Testing** 🟡
+- [ ] End-to-end workflow validation needed
+- [ ] User acceptance testing required
+- Critical: Voice workflow adoption signals mixed
 
-**Week 8 - User Testing Gate**
-- Do users find voice faster than typing?
-- Is the "execute" workflow acceptable?
-- If NO → Iterate on UX
-- If still NO → Pivot strategy
+**Week 8 - MVP Feature Lock** 🔴
+- [ ] 60% scope reduction required
+- [ ] Remove: Custom tunnel, mobile app, multi-tab
+- [ ] Focus: Core voice-to-terminal only
 
 ### 4.2 Enhanced Features (Phase 2 - Months 4-6)
 
@@ -973,40 +1026,51 @@ Reference: research-cluster/cross-platform-compatibility-analysis.md#architectur
 ---
 
 ## 6. Implementation Roadmap
+*Research Base: validation_report.md, integrated_synthesis.md*
+*Last Updated: 2025-09-13 | Timeline Adjusted for Reality*
 
-### 6.1 Development Timeline
+### 6.1 Development Timeline **[Research-Validated]**
 
 ```
-Q1 2024: Foundation
-├── Core voice engine
-├── Terminal integration (macOS/Linux)
+Weeks 1-8: Foundation & Validation [🟢 Achievable]
+├── tmux abstraction layer (NOT fork)
+├── Local voice models setup
 ├── Basic AI connection
-└── Desktop app shell (both platforms)
+└── Validation gates at weeks 2, 4, 6, 8
 
-Q2 2024: MVP Launch
+Weeks 9-16: Core Development [🟢 Realistic]
+├── Voice command pipeline
+├── Terminal integration (macOS/Linux)
+├── Desktop app shell (Electron)
+└── User workflow testing
+
+Weeks 17-24: MVP Completion [🟡 Aggressive but possible]
 ├── Beta release
 ├── User feedback integration
 ├── Bug fixes and stability
 └── Documentation
 
-Q3 2024: Mobile & Networking
+Months 7-9: Enhanced Features [🟡 Post-MVP]
+├── WezTerm fork evaluation (deferred from MVP)
+├── Advanced voice commands
+├── Multi-project support
+└── Performance optimization
+
+Months 10-12: Mobile & Network [🔴 High complexity]
 ├── iOS app development
-├── Custom tunnel implementation
-├── QR code/token pairing system
+├── Tailscale integration (NOT custom tunnel)
 ├── Remote access features
 └── Security hardening
 
-Q4 2024: Intelligence & Scale
-├── Advanced AI features
-├── Multi-model support
-├── Performance optimization
-└── Enterprise features
+Year 2: Enterprise & Scale [🟡 Market dependent]
+├── Custom tunnel evaluation (12-18 months if pursued)
+├── Enterprise features
+├── On-premises deployment
+└── Compliance certifications
 
-Q1 2025: Market Expansion
-├── Team collaboration
-├── Platform integrations
-├── International support
-└── Growth optimization
+[🔴 REMOVED FROM SCOPE: Custom tunnel system - adds 12-18 months]
+[🔴 REMOVED FROM MVP: Multi-tab architecture - unnecessary complexity]
+[🟢 ADDED: Phased approach with validation gates]
 ```
 
 ### 6.2 Resource Requirements

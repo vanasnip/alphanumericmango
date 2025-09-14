@@ -6,7 +6,7 @@ import SummaryCard from './components/AI/SummaryCard';
 import ProjectSwitcher from './components/Project/ProjectSwitcher';
 import { useVoiceRecognition } from './hooks/useVoiceRecognition';
 import { mockScenarios } from './data/mockResponses';
-import { OutputLine, ParsedCommand, Project, AIResponse } from './types';
+import { OutputLine, ParsedCommand, Project, AIResponse } from './types/index';
 
 function App() {
   // State management

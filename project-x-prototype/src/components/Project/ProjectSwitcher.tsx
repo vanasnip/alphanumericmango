@@ -1,6 +1,6 @@
 import React from 'react';
 import { Folder, ChevronDown } from 'lucide-react';
-import { Project } from '../../types';
+import { Project } from '../../types/index';
 
 interface ProjectSwitcherProps {
   currentProject: Project;

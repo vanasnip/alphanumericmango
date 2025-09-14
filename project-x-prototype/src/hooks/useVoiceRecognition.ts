@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { VoiceState, ParsedCommand } from '../types';
+import { VoiceState, ParsedCommand } from '../types/index';
 import { commandMappings } from '../data/mockResponses';
 
 // Extend Window interface for webkit speech recognition

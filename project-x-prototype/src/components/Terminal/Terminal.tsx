@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { OutputLine } from '../../types';
+import { OutputLine } from '../../types/index';
 
 interface TerminalProps {
   lines: OutputLine[];

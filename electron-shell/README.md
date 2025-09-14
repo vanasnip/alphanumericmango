@@ -1,45 +1,40 @@
-# Electron Shell for Project X
+# Electron Shell for Voice Terminal
 
 ## Quick Start
 
-### 1. Start your prototype dev server:
-
-**For React prototype:**
+### Option 1: Automatic (Recommended)
 ```bash
-cd ../project-x-prototype
-npm run dev
+./start.sh
 ```
+This will:
+- Check if Svelte dev server is running
+- Start it if needed
+- Build and launch Electron
 
-**For Svelte terminal (recommended):**
+### Option 2: Manual
+
+1. **Start Svelte terminal dev server:**
 ```bash
 cd ../voice-terminal-hybrid
-npm run dev -- --port 5174
+npm run dev
 ```
 
-### 2. Start Electron:
-
+2. **Start Electron:**
 ```bash
-# Default (loads Svelte)
-npm run dev
-
-# Or specify prototype
-PROTOTYPE=react npm run dev
-PROTOTYPE=svelte npm run dev
+npm run build
+npm start
 ```
 
 ## Features
 
-- **Flexible Loading**: Can load either React or Svelte prototype
-- **Hot Reload**: Works with dev servers
+- **Voice Terminal**: Advanced Svelte terminal with voice navigation
+- **Hot Reload**: Works with dev server
 - **IPC Ready**: Prepared for tmux and voice integration
 - **Performance Optimized**: Uses VS Code patterns from research
   - IPC batching (50ms windows)
-  - Process isolation
+  - Process isolation (sandboxed renderer)
   - Memory monitoring
-
-## Switching Prototypes
-
-Use the menu: `Prototype > Switch to [React/Svelte]`
+  - Context isolation for security
 
 ## Architecture
 

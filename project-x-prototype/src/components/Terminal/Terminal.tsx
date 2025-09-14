@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { OutputLine } from '../../types/index';
+import type { OutputLine, OutputLineType } from '../../types/index';
 
 interface TerminalProps {
   lines: OutputLine[];
@@ -17,7 +17,7 @@ const Terminal: React.FC<TerminalProps> = ({ lines, currentDirectory, isExecutin
     }
   }, [lines]);
 
-  const getLineColor = (type: OutputLine['type']) => {
+  const getLineColor = (type: OutputLineType) => {
     switch (type) {
       case 'command':
         return 'text-terminal-blue';

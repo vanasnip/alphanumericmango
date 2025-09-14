@@ -1,7 +1,9 @@
+export type OutputLineType = 'command' | 'output' | 'error' | 'success';
+
 export interface OutputLine {
   id: string;
   text: string;
-  type: 'command' | 'output' | 'error' | 'success';
+  type: OutputLineType;
   timestamp: number;
 }
 

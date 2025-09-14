@@ -1,0 +1,236 @@
+* {
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+}
+
+body {
+	font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+	background: #0a0a0a;
+	color: #00ff00;
+	overflow: hidden;
+	height: 100vh;
+}
+
+/* Terminal styles */
+.terminal {
+	height: 100vh;
+	display: flex;
+	flex-direction: column;
+	background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+	position: relative;
+}
+
+.terminal::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: repeating-linear-gradient(
+		0deg,
+		transparent,
+		transparent 2px,
+		rgba(0, 255, 0, 0.03) 2px,
+		rgba(0, 255, 0, 0.03) 4px
+	);
+	pointer-events: none;
+	z-index: 1;
+}
+
+/* Terminal header */
+.terminal-header {
+	background: #2a2a2a;
+	padding: 1rem;
+	border-bottom: 2px solid #00ff00;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	z-index: 2;
+	position: relative;
+}
+
+.terminal-title {
+	color: #00ff00;
+	font-weight: bold;
+	text-shadow: 0 0 10px #00ff00;
+}
+
+/* Terminal output area */
+.terminal-output {
+	flex: 1;
+	padding: 1rem;
+	overflow-y: auto;
+	z-index: 2;
+	position: relative;
+	scrollbar-width: thin;
+	scrollbar-color: #00ff00 #1a1a1a;
+}
+
+.terminal-output::-webkit-scrollbar {
+	width: 8px;
+}
+
+.terminal-output::-webkit-scrollbar-track {
+	background: #1a1a1a;
+}
+
+.terminal-output::-webkit-scrollbar-thumb {
+	background: #00ff00;
+	border-radius: 4px;
+}
+
+/* Terminal input area */
+.terminal-input {
+	border-top: 1px solid #333;
+	padding: 1rem;
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	background: #1a1a1a;
+	z-index: 2;
+	position: relative;
+}
+
+.input-prompt {
+	color: #00ff00;
+	font-weight: bold;
+	text-shadow: 0 0 5px #00ff00;
+}
+
+.input-field {
+	flex: 1;
+	background: transparent;
+	border: none;
+	color: #00ff00;
+	font-family: inherit;
+	font-size: 1rem;
+	outline: none;
+	caret-color: #00ff00;
+}
+
+.input-field::placeholder {
+	color: #006600;
+}
+
+/* Voice button */
+.voice-button {
+	width: 50px;
+	height: 50px;
+	border: 2px solid #00ff00;
+	border-radius: 50%;
+	background: transparent;
+	color: #00ff00;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: all 0.3s ease;
+	font-size: 1.2rem;
+}
+
+.voice-button:hover {
+	background: rgba(0, 255, 0, 0.1);
+	box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+}
+
+.voice-button.recording {
+	background: #ff0000;
+	border-color: #ff0000;
+	color: white;
+	animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+	0% {
+		box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7);
+	}
+	70% {
+		box-shadow: 0 0 0 10px rgba(255, 0, 0, 0);
+	}
+	100% {
+		box-shadow: 0 0 0 0 rgba(255, 0, 0, 0);
+	}
+}
+
+/* Output line styles */
+.output-line {
+	margin: 0.25rem 0;
+	display: flex;
+	align-items: flex-start;
+}
+
+.output-prompt {
+	color: #00ff00;
+	margin-right: 0.5rem;
+	font-weight: bold;
+}
+
+.output-content {
+	flex: 1;
+}
+
+.output-success {
+	color: #00ff00;
+}
+
+.output-error {
+	color: #ff6b6b;
+}
+
+.output-info {
+	color: #74c0fc;
+}
+
+.output-warning {
+	color: #ffd43b;
+}
+
+/* Voice status */
+.voice-status {
+	padding: 0.5rem;
+	background: rgba(0, 255, 0, 0.1);
+	border: 1px solid #00ff00;
+	border-radius: 4px;
+	margin-bottom: 1rem;
+	animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+	from { opacity: 0; transform: translateY(-10px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+.confidence-meter {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	margin-top: 0.5rem;
+}
+
+.confidence-bar {
+	flex: 1;
+	height: 4px;
+	background: #333;
+	border-radius: 2px;
+	overflow: hidden;
+}
+
+.confidence-fill {
+	height: 100%;
+	background: linear-gradient(90deg, #ff6b6b 0%, #ffd43b 50%, #00ff00 100%);
+	transition: width 0.3s ease;
+}
+
+/* Typewriter effect */
+@keyframes typewriter {
+	from { width: 0; }
+	to { width: 100%; }
+}
+
+.typewriter {
+	overflow: hidden;
+	white-space: nowrap;
+	animation: typewriter 1s steps(40, end);
+}

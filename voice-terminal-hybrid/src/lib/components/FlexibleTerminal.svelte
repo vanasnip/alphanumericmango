@@ -9,6 +9,8 @@
 	import { createTextToSpeech } from '../textToSpeech.js';
 	import { enhancedAIHandler } from '../aiConversationEnhanced.js';
 	import { layoutStore } from '../stores/layoutStore.js';
+	import { voiceNavigation, navigationItems } from '../voiceNavigation.js';
+	import VoiceNumberBadge from './VoiceNumberBadge.svelte';
 
 	let lines: TerminalLine[] = [];
 	let currentInput = '';
@@ -40,18 +42,49 @@
 	let dragStartY = 0;
 	let initialSplitRatio = 0;
 	
+	// Voice navigation state
+	let numberedMessages = new Map();
+	let hoveredItem: number | null = null;
+	
 	// Initialize on mount
 	onMount(() => {
 		voiceRecognition = createVoiceRecognition();
 		textToSpeech = createTextToSpeech();
 		
+		// Initialize voice navigation
+		setupVoiceNavigation();
+		
 		// Welcome message
 		addLine('🤖 AI Terminal Assistant Ready', 'system', 'info');
 		addLine('Speak naturally to interact. Say "execute" to run commands.', 'system', 'info');
+		addLine('Use voice commands like "1", "2", "Project 1", or "Message 3" to navigate.', 'system', 'info');
 		
 		// Auto-focus input
 		if (inputElement) inputElement.focus();
 	});
+	
+	function setupVoiceNavigation() {
+		// Register layout controls
+		voiceNavigation.registerItem('vertical-layout', 'menu', ['vertical split', 'vertical'], () => {
+			layoutStore.setMode('vertical');
+		});
+		
+		voiceNavigation.registerItem('horizontal-layout', 'menu', ['horizontal split', 'horizontal'], () => {
+			layoutStore.setMode('horizontal');
+		});
+		
+		voiceNavigation.registerItem('swap-panels', 'menu', ['swap panels', 'swap'], () => {
+			layoutStore.swapPanels();
+		});
+		
+		voiceNavigation.registerItem('clear-terminal', 'command', ['clear terminal'], () => {
+			lines = [];
+		});
+		
+		voiceNavigation.registerItem('clear-conversation', 'command', ['clear conversation'], () => {
+			clearConversation();
+		});
+	}
 
 	function generateId(): string {
 		return Math.random().toString(36).substr(2, 9);
@@ -109,8 +142,20 @@
 	}
 
 	function handleVoiceInput(transcript: string) {
+		// First try voice navigation commands
+		if (voiceNavigation.processVoiceCommand(transcript)) {
+			return; // Navigation command handled
+		}
+		
+		// Register user message with number
+		const userNumber = voiceNavigation.getNextMessageNumber(true);
+		
 		const response = enhancedAIHandler.processUserInput(transcript);
 		conversation = enhancedAIHandler.getConversation();
+		
+		// Register assistant message with number
+		const assistantNumber = voiceNavigation.getNextMessageNumber(false);
+		
 		scrollToBottom();
 		
 		if (response.type === 'execute') {
@@ -214,6 +259,8 @@
 		enhancedAIHandler.clearConversation();
 		conversation = [];
 		pendingCommand = '';
+		voiceNavigation.resetMessageCounter();
+		numberedMessages.clear();
 		addLine('🔄 Conversation cleared', 'system', 'info');
 	}
 
@@ -263,33 +310,73 @@
 	$: layoutClass = `layout-${$layoutStore.mode} position-${$layoutStore.conversationPosition}`;
 </script>
 
+<svelte:window on:keydown={handleGlobalKeyDown} />
+
 <div class="flexible-terminal {layoutClass}" class:dragging={isDragging}>
+	<!-- Project Tabs -->
+	<ProjectTabs />
+	
 	<!-- Layout Controls -->
 	<div class="layout-controls">
 		<div class="control-group">
-			<button 
-				class="layout-btn"
-				class:active={$layoutStore.mode === 'vertical'}
-				on:click={() => layoutStore.setMode('vertical')}
-				title="Vertical split"
-			>
-				⬌
-			</button>
-			<button 
-				class="layout-btn"
-				class:active={$layoutStore.mode === 'horizontal'}
-				on:click={() => layoutStore.setMode('horizontal')}
-				title="Horizontal split"
-			>
-				⬍
-			</button>
-			<button 
-				class="layout-btn swap"
-				on:click={() => layoutStore.swapPanels()}
-				title="Swap panels"
-			>
-				🔄
-			</button>
+			<div class="numbered-control">
+				<VoiceNumberBadge 
+					number={1} 
+					type="menu" 
+					voiceCommand="Vertical split"
+					isActive={$layoutStore.mode === 'vertical'}
+					isHovered={hoveredItem === 1}
+					size="small"
+				/>
+				<button 
+					class="layout-btn"
+					class:active={$layoutStore.mode === 'vertical'}
+					on:click={() => layoutStore.setMode('vertical')}
+					on:mouseenter={() => hoveredItem = 1}
+					on:mouseleave={() => hoveredItem = null}
+					title="Voice: Say '1' or 'Vertical split'"
+				>
+					⬌
+				</button>
+			</div>
+			<div class="numbered-control">
+				<VoiceNumberBadge 
+					number={2} 
+					type="menu" 
+					voiceCommand="Horizontal split"
+					isActive={$layoutStore.mode === 'horizontal'}
+					isHovered={hoveredItem === 2}
+					size="small"
+				/>
+				<button 
+					class="layout-btn"
+					class:active={$layoutStore.mode === 'horizontal'}
+					on:click={() => layoutStore.setMode('horizontal')}
+					on:mouseenter={() => hoveredItem = 2}
+					on:mouseleave={() => hoveredItem = null}
+					title="Voice: Say '2' or 'Horizontal split'"
+				>
+					⬍
+				</button>
+			</div>
+			<div class="numbered-control">
+				<VoiceNumberBadge 
+					number={3} 
+					type="menu" 
+					voiceCommand="Swap panels"
+					isHovered={hoveredItem === 3}
+					size="small"
+				/>
+				<button 
+					class="layout-btn swap"
+					on:click={() => layoutStore.swapPanels()}
+					on:mouseenter={() => hoveredItem = 3}
+					on:mouseleave={() => hoveredItem = null}
+					title="Voice: Say '3' or 'Swap panels'"
+				>
+					🔄
+				</button>
+			</div>
 		</div>
 		<div class="title">🤖 AI Voice Terminal</div>
 		<div class="control-group">
@@ -298,6 +385,13 @@
 					🎤 {isRecording ? 'Listening' : 'Ready'}
 				</span>
 			{/if}
+			<button 
+				class="voice-menu-btn"
+				on:click={() => showVoiceMenu = true}
+				title="Show voice commands (Ctrl+? or Cmd+?)"
+			>
+				❓
+			</button>
 		</div>
 	</div>
 
@@ -306,7 +400,24 @@
 		<div class="terminal-panel">
 			<div class="panel-header">
 				<span class="panel-title">Terminal</span>
-				<button class="clear-btn" on:click={() => lines = []}>Clear</button>
+				<div class="numbered-control">
+					<VoiceNumberBadge 
+						number={4} 
+						type="command" 
+						voiceCommand="Clear terminal"
+						isHovered={hoveredItem === 4}
+						size="small"
+					/>
+					<button 
+						class="clear-btn" 
+						on:click={() => lines = []}
+						on:mouseenter={() => hoveredItem = 4}
+						on:mouseleave={() => hoveredItem = null}
+						title="Voice: Say '4' or 'Clear terminal'"
+					>
+						Clear
+					</button>
+				</div>
 			</div>
 			<div class="terminal-output" bind:this={outputElement}>
 				{#each lines as line (line.id)}
@@ -351,11 +462,37 @@
 		<div class="conversation-panel">
 			<div class="panel-header">
 				<span class="panel-title">AI Assistant</span>
-				<button class="clear-btn" on:click={clearConversation}>Clear</button>
+				<div class="numbered-control">
+					<VoiceNumberBadge 
+						number={5} 
+						type="command" 
+						voiceCommand="Clear conversation"
+						isHovered={hoveredItem === 5}
+						size="small"
+					/>
+					<button 
+						class="clear-btn" 
+						on:click={clearConversation}
+						on:mouseenter={() => hoveredItem = 5}
+						on:mouseleave={() => hoveredItem = null}
+						title="Voice: Say '5' or 'Clear conversation'"
+					>
+						Clear
+					</button>
+				</div>
 			</div>
 			<div class="conversation-messages" bind:this={conversationElement}>
-				{#each conversation as msg (msg.id)}
+				{#each conversation as msg, index (msg.id)}
+					{@const messageNumber = msg.role === 'user' ? (index * 2 + 7) : (index * 2 + 8)}
 					<div class="message {msg.role}" transition:fade>
+						<div class="message-number">
+							<VoiceNumberBadge 
+								number={messageNumber} 
+								type="message" 
+								voiceCommand="Message {messageNumber}"
+								size="small"
+							/>
+						</div>
 						<div class="message-role">{msg.role === 'user' ? '👤' : '🤖'}</div>
 						<div class="message-content">{msg.content}</div>
 					</div>
@@ -402,6 +539,9 @@
 	</div>
 </div>
 
+<!-- Voice Command Menu -->
+<VoiceCommandMenu bind:isVisible={showVoiceMenu} />
+
 <style>
 	.flexible-terminal {
 		display: flex;
@@ -425,6 +565,13 @@
 		display: flex;
 		gap: 0.5rem;
 		align-items: center;
+	}
+
+	.numbered-control {
+		position: relative;
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
 	}
 
 	.layout-btn {
@@ -470,6 +617,23 @@
 		border-color: #ff0000;
 		color: #ff0000;
 		animation: pulse 1s infinite;
+	}
+
+	.voice-menu-btn {
+		padding: 0.5rem;
+		background: #0a0a0a;
+		color: #00ff00;
+		border: 1px solid #333;
+		border-radius: 4px;
+		cursor: pointer;
+		font-size: 1rem;
+		transition: all 0.2s;
+		min-width: 36px;
+	}
+
+	.voice-menu-btn:hover {
+		border-color: #00ff00;
+		background: #1a2a1a;
 	}
 
 	/* Layout Container */
@@ -694,16 +858,25 @@
 		padding: 0.5rem;
 		border-radius: 6px;
 		background: #1a1a1a;
+		position: relative;
+	}
+
+	.message-number {
+		position: absolute;
+		left: -32px;
+		top: 50%;
+		transform: translateY(-50%);
 	}
 
 	.message.user {
 		background: #1a2a1a;
-		margin-left: 2rem;
+		margin-left: 3rem; /* Extra space for number badge */
 	}
 
 	.message.assistant {
 		background: #1a1a2a;
 		margin-right: 2rem;
+		margin-left: 3rem; /* Extra space for number badge */
 	}
 
 	.message-role {

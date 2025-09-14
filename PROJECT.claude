@@ -1,0 +1,142 @@
+# PROJECT.claude - Electron Development Directives
+
+## 🎯 Project Context
+Building optimized Electron applications with voice-terminal hybrid capabilities, following VS Code-level optimization patterns discovered through comprehensive research.
+
+## 📚 Research Foundation
+**Critical Documents** (Reference before ANY Electron work):
+- `ELECTRON_INTEGRATED_KNOWLEDGE_FRAMEWORK.md` - Complete knowledge synthesis
+- `ELECTRON_PERFORMANCE_OPTIMIZATION_GUIDE.md` - Performance techniques
+- `ELECTRON_ARCHITECTURAL_PATTERNS.md` - Architecture patterns
+- `ELECTRON_ECOSYSTEM_MAPPING.md` - Ecosystem insights
+
+## ⚡ MANDATORY Pre-Implementation Checklist
+
+### Before ANY Electron Feature:
+```
+□ Process isolation strategy defined?
+□ IPC communication pattern selected (batched/streaming)?
+□ Memory management approach chosen?
+□ Security boundaries established?
+□ Performance budget allocated?
+```
+
+## 🏗️ Architecture Directives
+
+### 1. Process Architecture (ALWAYS)
+```typescript
+// MANDATORY: Multi-process separation
+Main Process → Coordination only
+Renderer Process → UI only (sandboxed)
+Utility Process → Extensions/heavy compute
+Service Process → Background tasks
+```
+
+### 2. IPC Communication (NEVER COMPROMISE)
+```typescript
+// ALWAYS: Batched async IPC
+ipcRenderer.send('batch-operation', messages) ✅
+
+// NEVER: Synchronous IPC
+ipcRenderer.sendSync('operation', data) ❌ // UI HANG!
+```
+
+### 3. Performance Patterns (NON-NEGOTIABLE)
+- **Startup**: Implement V8 snapshots for <2s startup
+- **Memory**: Stream processing for >10MB data
+- **Rendering**: Virtual scrolling for >1000 items
+- **Loading**: Lazy load non-critical modules
+
+## 🚨 Anti-Pattern Detection
+
+**STOP IMMEDIATELY if you're about to:**
+1. Use `require()` in renderer process without preload
+2. Implement synchronous IPC for any reason
+3. Load entire datasets into memory
+4. Create monolithic single-process architecture
+5. Skip context isolation in renderer
+
+## 🔍 Decision Gates
+
+### Architecture Decision Required?
+→ Consult: `ELECTRON_ARCHITECTURAL_PATTERNS.md#decision-framework`
+
+### Performance Issue Detected?
+→ Reference: `ELECTRON_PERFORMANCE_OPTIMIZATION_GUIDE.md#optimization-matrix`
+
+### Adding New Feature?
+→ Check: Process isolation impact, IPC overhead, memory implications
+
+## 💡 Quick Reference Patterns
+
+### Problem → Solution Map
+- **Slow startup** → V8 snapshots + lazy loading
+- **Memory leak** → Stream processing + proper cleanup
+- **UI freezing** → Move to utility process + async IPC
+- **Extension crashes** → Process isolation + sandboxing
+- **Large files** → Virtual scrolling + streaming
+
+### Implementation Priorities
+1. **Security First**: Context isolation, sandboxing
+2. **Performance Second**: Measure → optimize → validate
+3. **Features Third**: Only after 1 & 2 are solid
+
+## 🔄 Continuous Validation
+
+### On Every Commit:
+1. Check against ElectronAntiPatterns in memory
+2. Validate performance metrics remain in budget
+3. Ensure process isolation maintained
+4. Verify IPC patterns are async
+
+### Weekly Review:
+- Update memory graph with new discoveries
+- Document any anti-patterns encountered
+- Add successful patterns to knowledge base
+
+## 🎯 Project-Specific Directives
+
+### Voice-Terminal Integration
+- Voice processing in isolated utility process
+- Terminal operations in separate service process
+- UI updates via batched IPC (50ms windows)
+- Audio streaming with proper cleanup handlers
+
+### Module Structure
+```
+electron-shell/
+  ├── main/           # Main process only
+  ├── renderer/       # Sandboxed UI only
+  ├── preload/        # Context bridge
+  ├── services/       # Utility processes
+  └── shared/         # Type definitions
+
+modules/
+  ├── voice-engine/   # Isolated voice processing
+  ├── tmux-controller/# Terminal management
+  └── ai-processor/   # WebWorker/utility process
+```
+
+## 📈 Success Metrics
+- Startup time: <2 seconds
+- Memory usage: <200MB baseline
+- IPC latency: <16ms (60fps)
+- Crash rate: <0.1%
+- Extension impact: <10% performance
+
+## 🧠 Living Knowledge Integration
+
+This project uses MCP memory (context: "alphanumeric") to maintain:
+- Applied patterns and their outcomes
+- Performance metrics over time
+- Anti-patterns discovered
+- Architecture decisions and rationale
+
+**Query memory before major decisions:**
+```javascript
+aim_search_nodes({context: "alphanumeric", query: "[pattern/optimization]"})
+```
+
+---
+
+**Remember**: Every Electron decision should reference our research. When in doubt, consult the framework documents. Performance and security are not optional - they're fundamental.

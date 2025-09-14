@@ -1,0 +1,2 @@
+{"type":"_aim","source":"mcp-knowledge-graph"}
+{"type":"entity","name":"RenderOptimization","entityType":"metric","observations":["Virtual scrolling for long outputs","React.memo equivalent in Svelte","RequestAnimationFrame for smooth updates","Debounced resize handlers"]}

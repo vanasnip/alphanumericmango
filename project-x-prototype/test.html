@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Voice Test</title>
+</head>
+<body>
+    <h1>Simple Voice Recognition Test</h1>
+    <button id="start">Start Voice Recognition</button>
+    <div id="output"></div>
+    
+    <script>
+        const button = document.getElementById('start');
+        const output = document.getElementById('output');
+        
+        button.onclick = () => {
+            if (!('webkitSpeechRecognition' in window)) {
+                output.innerHTML = 'Speech recognition not supported in this browser. Use Chrome or Edge.';
+                return;
+            }
+            
+            const recognition = new webkitSpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            
+            recognition.onstart = () => {
+                output.innerHTML = 'Listening...';
+            };
+            
+            recognition.onresult = (event) => {
+                let transcript = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    transcript += event.results[i][0].transcript;
+                }
+                output.innerHTML = 'You said: ' + transcript;
+            };
+            
+            recognition.onerror = (event) => {
+                output.innerHTML = 'Error: ' + event.error;
+            };
+            
+            recognition.start();
+        };
+    </script>
+</body>
+</html>

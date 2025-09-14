@@ -1,12 +1,12 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import Terminal from './components/Terminal/Terminal.js';
-import VoiceIndicator from './components/Voice/VoiceIndicator.js';
-import CommandPreview from './components/Command/CommandPreview.js';
-import SummaryCard from './components/AI/SummaryCard.js';
-import ProjectSwitcher from './components/Project/ProjectSwitcher.js';
-import { useVoiceRecognition } from './hooks/useVoiceRecognition.js';
-import { mockScenarios } from './data/mockResponses.js';
-import { OutputLine, ParsedCommand, Project, AIResponse } from './types/index.js';
+import Terminal from './components/Terminal/Terminal';
+import VoiceIndicator from './components/Voice/VoiceIndicator';
+import CommandPreview from './components/Command/CommandPreview';
+import SummaryCard from './components/AI/SummaryCard';
+import ProjectSwitcher from './components/Project/ProjectSwitcher';
+import { useVoiceRecognition } from './hooks/useVoiceRecognition';
+import { mockScenarios } from './data/mockResponses';
+import { OutputLine, ParsedCommand, Project, AIResponse } from './types/index';
 
 function App() {
   // State management

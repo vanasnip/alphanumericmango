@@ -1,6 +1,6 @@
 import React from 'react';
 import { Bot, AlertTriangle, CheckCircle } from 'lucide-react';
-import { AIResponse } from '../../types/index.js';
+import { AIResponse } from '../../types/index';
 
 interface SummaryCardProps {
   response: AIResponse | null;

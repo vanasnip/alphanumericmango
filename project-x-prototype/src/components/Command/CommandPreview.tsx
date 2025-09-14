@@ -1,6 +1,6 @@
 import React from 'react';
 import { AlertCircle, CheckCircle, XCircle } from 'lucide-react';
-import { ParsedCommand } from '../../types/index';
+import { ParsedCommand } from '../../types/index.js';
 
 interface CommandPreviewProps {
   command: ParsedCommand | null;

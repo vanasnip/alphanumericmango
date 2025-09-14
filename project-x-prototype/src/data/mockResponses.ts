@@ -1,4 +1,4 @@
-import { OutputLine } from '../types/index';
+import { OutputLine } from '../types/index.js';
 
 export const mockScenarios = {
   "run tests": {

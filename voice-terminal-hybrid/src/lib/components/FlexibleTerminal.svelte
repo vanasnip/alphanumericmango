@@ -9,8 +9,8 @@
 	import { createTextToSpeech } from '../textToSpeech.js';
 	import { enhancedAIHandler } from '../aiConversationEnhanced.js';
 	import { layoutStore } from '../stores/layoutStore.js';
-	import { voiceNavigation, navigationItems } from '../voiceNavigation.js';
-	import VoiceNumberBadge from './VoiceNumberBadge.svelte';
+	import VoiceCommandMenu from './VoiceCommandMenu.svelte';
+	import ProjectTabs from './ProjectTabs.svelte';
 
 	let lines: TerminalLine[] = [];
 	let currentInput = '';
@@ -42,9 +42,8 @@
 	let dragStartY = 0;
 	let initialSplitRatio = 0;
 	
-	// Voice navigation state
-	let numberedMessages = new Map();
-	let hoveredItem: number | null = null;
+	// Voice menu state
+	let showVoiceMenu = false;
 	
 	// Initialize on mount
 	onMount(() => {
@@ -319,64 +318,29 @@
 	<!-- Layout Controls -->
 	<div class="layout-controls">
 		<div class="control-group">
-			<div class="numbered-control">
-				<VoiceNumberBadge 
-					number={1} 
-					type="menu" 
-					voiceCommand="Vertical split"
-					isActive={$layoutStore.mode === 'vertical'}
-					isHovered={hoveredItem === 1}
-					size="small"
-				/>
-				<button 
-					class="layout-btn"
-					class:active={$layoutStore.mode === 'vertical'}
-					on:click={() => layoutStore.setMode('vertical')}
-					on:mouseenter={() => hoveredItem = 1}
-					on:mouseleave={() => hoveredItem = null}
-					title="Voice: Say '1' or 'Vertical split'"
-				>
-					⬌
-				</button>
-			</div>
-			<div class="numbered-control">
-				<VoiceNumberBadge 
-					number={2} 
-					type="menu" 
-					voiceCommand="Horizontal split"
-					isActive={$layoutStore.mode === 'horizontal'}
-					isHovered={hoveredItem === 2}
-					size="small"
-				/>
-				<button 
-					class="layout-btn"
-					class:active={$layoutStore.mode === 'horizontal'}
-					on:click={() => layoutStore.setMode('horizontal')}
-					on:mouseenter={() => hoveredItem = 2}
-					on:mouseleave={() => hoveredItem = null}
-					title="Voice: Say '2' or 'Horizontal split'"
-				>
-					⬍
-				</button>
-			</div>
-			<div class="numbered-control">
-				<VoiceNumberBadge 
-					number={3} 
-					type="menu" 
-					voiceCommand="Swap panels"
-					isHovered={hoveredItem === 3}
-					size="small"
-				/>
-				<button 
-					class="layout-btn swap"
-					on:click={() => layoutStore.swapPanels()}
-					on:mouseenter={() => hoveredItem = 3}
-					on:mouseleave={() => hoveredItem = null}
-					title="Voice: Say '3' or 'Swap panels'"
-				>
-					🔄
-				</button>
-			</div>
+			<button 
+				class="layout-btn"
+				class:active={$layoutStore.mode === 'vertical'}
+				on:click={() => layoutStore.setMode('vertical')}
+				title="Vertical split"
+			>
+				⬌
+			</button>
+			<button 
+				class="layout-btn"
+				class:active={$layoutStore.mode === 'horizontal'}
+				on:click={() => layoutStore.setMode('horizontal')}
+				title="Horizontal split"
+			>
+				⬍
+			</button>
+			<button 
+				class="layout-btn swap"
+				on:click={() => layoutStore.swapPanels()}
+				title="Swap panels"
+			>
+				🔄
+			</button>
 		</div>
 		<div class="title">🤖 AI Voice Terminal</div>
 		<div class="control-group">
@@ -400,24 +364,13 @@
 		<div class="terminal-panel">
 			<div class="panel-header">
 				<span class="panel-title">Terminal</span>
-				<div class="numbered-control">
-					<VoiceNumberBadge 
-						number={4} 
-						type="command" 
-						voiceCommand="Clear terminal"
-						isHovered={hoveredItem === 4}
-						size="small"
-					/>
-					<button 
-						class="clear-btn" 
-						on:click={() => lines = []}
-						on:mouseenter={() => hoveredItem = 4}
-						on:mouseleave={() => hoveredItem = null}
-						title="Voice: Say '4' or 'Clear terminal'"
-					>
-						Clear
-					</button>
-				</div>
+				<button 
+					class="clear-btn" 
+					on:click={() => lines = []}
+					title="Clear terminal"
+				>
+					Clear
+				</button>
 			</div>
 			<div class="terminal-output" bind:this={outputElement}>
 				{#each lines as line (line.id)}
@@ -462,37 +415,17 @@
 		<div class="conversation-panel">
 			<div class="panel-header">
 				<span class="panel-title">AI Assistant</span>
-				<div class="numbered-control">
-					<VoiceNumberBadge 
-						number={5} 
-						type="command" 
-						voiceCommand="Clear conversation"
-						isHovered={hoveredItem === 5}
-						size="small"
-					/>
-					<button 
-						class="clear-btn" 
-						on:click={clearConversation}
-						on:mouseenter={() => hoveredItem = 5}
-						on:mouseleave={() => hoveredItem = null}
-						title="Voice: Say '5' or 'Clear conversation'"
-					>
-						Clear
-					</button>
-				</div>
+				<button 
+					class="clear-btn" 
+					on:click={clearConversation}
+					title="Clear conversation"
+				>
+					Clear
+				</button>
 			</div>
 			<div class="conversation-messages" bind:this={conversationElement}>
 				{#each conversation as msg, index (msg.id)}
-					{@const messageNumber = msg.role === 'user' ? (index * 2 + 7) : (index * 2 + 8)}
 					<div class="message {msg.role}" transition:fade>
-						<div class="message-number">
-							<VoiceNumberBadge 
-								number={messageNumber} 
-								type="message" 
-								voiceCommand="Message {messageNumber}"
-								size="small"
-							/>
-						</div>
 						<div class="message-role">{msg.role === 'user' ? '👤' : '🤖'}</div>
 						<div class="message-content">{msg.content}</div>
 					</div>

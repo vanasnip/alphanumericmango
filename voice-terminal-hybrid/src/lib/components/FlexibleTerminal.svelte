@@ -7,7 +7,7 @@
 	import { processCommand } from '../mockCommands.js';
 	import { createVoiceRecognition } from '../voiceRecognition.js';
 	import { createTextToSpeech } from '../textToSpeech.js';
-	import { aiHandler } from '../aiConversation.js';
+	import { enhancedAIHandler } from '../aiConversationEnhanced.js';
 	import { layoutStore } from '../stores/layoutStore.js';
 
 	let lines: TerminalLine[] = [];
@@ -109,8 +109,8 @@
 	}
 
 	function handleVoiceInput(transcript: string) {
-		const response = aiHandler.processUserInput(transcript);
-		conversation = aiHandler.getConversation();
+		const response = enhancedAIHandler.processUserInput(transcript);
+		conversation = enhancedAIHandler.getConversation();
 		scrollToBottom();
 		
 		if (response.type === 'execute') {
@@ -119,6 +119,15 @@
 				executeCommand(response.command);
 			}
 			textToSpeech?.speak("Command executed");
+		} else if (response.type === 'ui-action') {
+			// Handle UI action responses
+			addLine(`🎨 UI Action: ${response.response}`, 'system', 'success');
+			textToSpeech?.speak(response.response, {
+				onEnd: () => {
+					isAISpeaking = false;
+				}
+			});
+			isAISpeaking = true;
 		} else {
 			textToSpeech?.speak(response.response, {
 				onEnd: () => {
@@ -202,7 +211,7 @@
 	}
 
 	function clearConversation() {
-		aiHandler.clearConversation();
+		enhancedAIHandler.clearConversation();
 		conversation = [];
 		pendingCommand = '';
 		addLine('🔄 Conversation cleared', 'system', 'info');

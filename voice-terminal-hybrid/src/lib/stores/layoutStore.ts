@@ -28,6 +28,7 @@ function createLayoutStore() {
 
 	return {
 		subscribe,
+		update,
 		setMode: (mode: LayoutMode) => {
 			update(config => {
 				const newConfig = { ...config, mode };

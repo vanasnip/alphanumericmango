@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ConversationalTerminal from '$lib/components/ConversationalTerminal.svelte';
+	import FlexibleTerminal from '$lib/components/FlexibleTerminal.svelte';
 </script>
 
 <svelte:head>
@@ -7,7 +7,7 @@
 	<meta name="description" content="A conversational AI-powered voice terminal interface" />
 </svelte:head>
 
-<ConversationalTerminal />
+<FlexibleTerminal />
 
 <style>
 	:global(html, body) {

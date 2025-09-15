@@ -17,7 +17,8 @@
  * ```
  */
 
-export { default as Paper } from './Paper';
+// Export both as named and default for flexibility
+export { default as Paper, default } from './Paper';
 export type { PaperProps, PaperOwnProps, PaperComponent } from './Paper';
 
 // Re-export related types for convenience

@@ -1,0 +1,427 @@
+/* CSS Custom Property System for Theme Application */
+/* Comprehensive theming system with fallbacks and dynamic updates */
+
+/* Base theme variables - these will be overridden by theme presets */
+:root {
+  /* Color System */
+  --color-primary: #3B82F6;
+  --color-primary-rgb: 59, 130, 246;
+  --color-secondary: #8B5CF6;
+  --color-secondary-rgb: 139, 92, 246;
+  
+  /* Status Colors */
+  --color-success: #10B981;
+  --color-success-rgb: 16, 185, 129;
+  --color-warning: #F59E0B;
+  --color-warning-rgb: 245, 158, 11;
+  --color-error: #EF4444;
+  --color-error-rgb: 239, 68, 68;
+  --color-info: #06B6D4;
+  --color-info-rgb: 6, 182, 212;
+  
+  /* Surface Colors */
+  --color-background: #0F172A;
+  --color-background-rgb: 15, 23, 42;
+  --color-surface: #1E293B;
+  --color-surface-rgb: 30, 41, 59;
+  --color-surface-secondary: #334155;
+  --color-surface-secondary-rgb: 51, 65, 85;
+  --color-surface-hover: #475569;
+  --color-surface-hover-rgb: 71, 85, 105;
+  
+  /* Text Colors */
+  --color-text: #F8FAFC;
+  --color-text-rgb: 248, 250, 252;
+  --color-text-secondary: #CBD5E1;
+  --color-text-secondary-rgb: 203, 213, 225;
+  --color-text-muted: #64748B;
+  --color-text-muted-rgb: 100, 116, 139;
+  --color-text-inverse: #1E293B;
+  --color-text-inverse-rgb: 30, 41, 59;
+  
+  /* Border and Outline Colors */
+  --color-border: #475569;
+  --color-border-rgb: 71, 85, 105;
+  --color-border-light: #64748B;
+  --color-border-light-rgb: 100, 116, 139;
+  --color-outline: #3B82F6;
+  --color-outline-rgb: 59, 130, 246;
+  
+  /* Terminal Accent */
+  --color-accent: #00FF00;
+  --color-accent-rgb: 0, 255, 0;
+  --color-accent-dark: #00CC00;
+  --color-accent-dark-rgb: 0, 204, 0;
+  
+  /* Typography System */
+  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-family-mono: 'JetBrains Mono', 'Monaco', 'Consolas', monospace;
+  
+  /* Font Sizes */
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+  
+  /* Font Weights */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
+  /* Line Heights */
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+  
+  /* Spacing System */
+  --spacing-0: 0;
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-5: 1.25rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  --spacing-10: 2.5rem;
+  --spacing-12: 3rem;
+  --spacing-16: 4rem;
+  --spacing-20: 5rem;
+  --spacing-24: 6rem;
+  
+  /* Border Radius */
+  --border-radius-none: 0;
+  --border-radius-sm: 0.125rem;
+  --border-radius-md: 0.375rem;
+  --border-radius-lg: 0.5rem;
+  --border-radius-xl: 0.75rem;
+  --border-radius-full: 9999px;
+  
+  /* Border Widths */
+  --border-width-none: 0;
+  --border-width-thin: 1px;
+  --border-width-thick: 2px;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-glow: 0 0 20px rgb(var(--color-primary-rgb) / 0.3);
+  
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.3s ease;
+  --transition-slow: 0.5s ease;
+  
+  /* Z-index Scale */
+  --z-dropdown: 1000;
+  --z-modal: 1010;
+  --z-tooltip: 1020;
+  --z-overlay: 1030;
+}
+
+/* Theme mode variants */
+[data-theme="light"] {
+  --color-background: #FFFFFF;
+  --color-background-rgb: 255, 255, 255;
+  --color-surface: #F8FAFC;
+  --color-surface-rgb: 248, 250, 252;
+  --color-surface-secondary: #F1F5F9;
+  --color-surface-secondary-rgb: 241, 245, 249;
+  --color-surface-hover: #E2E8F0;
+  --color-surface-hover-rgb: 226, 232, 240;
+  
+  --color-text: #1E293B;
+  --color-text-rgb: 30, 41, 59;
+  --color-text-secondary: #475569;
+  --color-text-secondary-rgb: 71, 85, 105;
+  --color-text-muted: #64748B;
+  --color-text-muted-rgb: 100, 116, 139;
+  --color-text-inverse: #F8FAFC;
+  --color-text-inverse-rgb: 248, 250, 252;
+  
+  --color-border: #CBD5E1;
+  --color-border-rgb: 203, 213, 225;
+  --color-border-light: #E2E8F0;
+  --color-border-light-rgb: 226, 232, 240;
+  
+  --color-accent: #16A34A;
+  --color-accent-rgb: 22, 163, 74;
+}
+
+/* Ocean theme preset */
+[data-theme-preset="ocean"] {
+  --color-primary: #0EA5E9;
+  --color-primary-rgb: 14, 165, 233;
+  --color-secondary: #06B6D4;
+  --color-secondary-rgb: 6, 182, 212;
+  --color-accent: #00FFFF;
+  --color-accent-rgb: 0, 255, 255;
+}
+
+[data-theme="light"][data-theme-preset="ocean"] {
+  --color-primary: #0369A1;
+  --color-primary-rgb: 3, 105, 161;
+  --color-secondary: #0891B2;
+  --color-secondary-rgb: 8, 145, 178;
+  --color-accent: #0891B2;
+  --color-accent-rgb: 8, 145, 178;
+  --color-background: #F0F9FF;
+  --color-background-rgb: 240, 249, 255;
+  --color-surface: #E0F7FA;
+  --color-surface-rgb: 224, 247, 250;
+}
+
+/* Forest theme preset */
+[data-theme-preset="forest"] {
+  --color-primary: #16A34A;
+  --color-primary-rgb: 22, 163, 74;
+  --color-secondary: #84CC16;
+  --color-secondary-rgb: 132, 204, 22;
+  --color-accent: #00FF41;
+  --color-accent-rgb: 0, 255, 65;
+}
+
+[data-theme="light"][data-theme-preset="forest"] {
+  --color-primary: #15803D;
+  --color-primary-rgb: 21, 128, 61;
+  --color-secondary: #65A30D;
+  --color-secondary-rgb: 101, 163, 13;
+  --color-accent: #16A34A;
+  --color-accent-rgb: 22, 163, 74;
+  --color-background: #F0FDF4;
+  --color-background-rgb: 240, 253, 244;
+  --color-surface: #DCFCE7;
+  --color-surface-rgb: 220, 252, 231;
+}
+
+/* High contrast theme preset */
+[data-theme-preset="high-contrast"] {
+  --color-primary: #FFFFFF;
+  --color-primary-rgb: 255, 255, 255;
+  --color-secondary: #FFFF00;
+  --color-secondary-rgb: 255, 255, 0;
+  --color-success: #00FF00;
+  --color-success-rgb: 0, 255, 0;
+  --color-warning: #FFFF00;
+  --color-warning-rgb: 255, 255, 0;
+  --color-error: #FF0000;
+  --color-error-rgb: 255, 0, 0;
+  --color-info: #00FFFF;
+  --color-info-rgb: 0, 255, 255;
+  --color-background: #000000;
+  --color-background-rgb: 0, 0, 0;
+  --color-surface: #1A1A1A;
+  --color-surface-rgb: 26, 26, 26;
+  --color-text: #FFFFFF;
+  --color-text-rgb: 255, 255, 255;
+  --color-border: #FFFFFF;
+  --color-border-rgb: 255, 255, 255;
+  --color-accent: #00FF00;
+  --color-accent-rgb: 0, 255, 0;
+}
+
+[data-theme="light"][data-theme-preset="high-contrast"] {
+  --color-primary: #000000;
+  --color-primary-rgb: 0, 0, 0;
+  --color-secondary: #0000FF;
+  --color-secondary-rgb: 0, 0, 255;
+  --color-success: #008000;
+  --color-success-rgb: 0, 128, 0;
+  --color-warning: #FF8C00;
+  --color-warning-rgb: 255, 140, 0;
+  --color-error: #FF0000;
+  --color-error-rgb: 255, 0, 0;
+  --color-info: #0000FF;
+  --color-info-rgb: 0, 0, 255;
+  --color-background: #FFFFFF;
+  --color-background-rgb: 255, 255, 255;
+  --color-surface: #F5F5F5;
+  --color-surface-rgb: 245, 245, 245;
+  --color-text: #000000;
+  --color-text-rgb: 0, 0, 0;
+  --color-border: #000000;
+  --color-border-rgb: 0, 0, 0;
+  --color-accent: #008000;
+  --color-accent-rgb: 0, 128, 0;
+}
+
+/* Component-specific custom properties */
+
+/* Terminal */
+.terminal {
+  --terminal-bg: var(--color-background);
+  --terminal-text: var(--color-text);
+  --terminal-font: var(--font-family-mono);
+  --terminal-font-size: 14px;
+  --terminal-line-height: var(--line-height-normal);
+  --terminal-padding: var(--spacing-4);
+  --terminal-border: var(--color-border);
+  --terminal-accent: var(--color-accent);
+  --terminal-scroll-bg: var(--color-surface);
+  --terminal-scroll-thumb: var(--color-accent);
+}
+
+/* Voice Indicator */
+.voice-indicator {
+  --voice-size: 50px;
+  --voice-border-width: var(--border-width-thick);
+  --voice-border-radius: var(--border-radius-full);
+  --voice-transition: var(--transition-normal);
+  --voice-font-size: var(--font-size-xl);
+}
+
+/* Settings Panel */
+.settings-panel {
+  --settings-bg: var(--color-surface);
+  --settings-border: var(--color-border);
+  --settings-border-radius: var(--border-radius-lg);
+  --settings-padding: var(--spacing-6);
+  --settings-shadow: var(--shadow-lg);
+  --settings-backdrop: blur(8px);
+}
+
+/* Navigation */
+.navigation {
+  --nav-bg: var(--color-surface-secondary);
+  --nav-border: var(--color-border);
+  --nav-text: var(--color-text);
+  --nav-text-hover: var(--color-text);
+  --nav-bg-hover: var(--color-surface-hover);
+  --nav-border-radius: var(--border-radius-md);
+  --nav-padding: var(--spacing-2) var(--spacing-4);
+}
+
+/* Project Tabs */
+.project-tabs {
+  --tab-bg: var(--color-surface);
+  --tab-bg-active: var(--color-primary);
+  --tab-text: var(--color-text-secondary);
+  --tab-text-active: var(--color-text-inverse);
+  --tab-border: var(--color-border);
+  --tab-border-radius: var(--border-radius-md);
+  --tab-padding: var(--spacing-2) var(--spacing-4);
+  --tab-transition: var(--transition-fast);
+}
+
+/* Form Controls */
+.form-control {
+  --input-bg: var(--color-surface);
+  --input-border: var(--color-border);
+  --input-border-focus: var(--color-outline);
+  --input-text: var(--color-text);
+  --input-placeholder: var(--color-text-muted);
+  --input-border-radius: var(--border-radius-md);
+  --input-padding: var(--spacing-3);
+  --input-font-size: var(--font-size-base);
+}
+
+/* Voice Command Menu */
+.voice-command-menu {
+  --menu-bg: var(--color-surface);
+  --menu-border: var(--color-border);
+  --menu-shadow: var(--shadow-lg);
+  --command-bg-hover: var(--color-surface-hover);
+  --command-text: var(--color-text);
+  --command-accent: var(--color-accent);
+}
+
+/* Utility classes for theme switching */
+.theme-transition {
+  transition: 
+    background-color var(--transition-normal),
+    border-color var(--transition-normal),
+    color var(--transition-normal),
+    box-shadow var(--transition-normal);
+}
+
+.theme-transition * {
+  transition: 
+    background-color var(--transition-normal),
+    border-color var(--transition-normal),
+    color var(--transition-normal),
+    box-shadow var(--transition-normal);
+}
+
+/* Color utility classes */
+.bg-primary { background-color: var(--color-primary); }
+.bg-secondary { background-color: var(--color-secondary); }
+.bg-success { background-color: var(--color-success); }
+.bg-warning { background-color: var(--color-warning); }
+.bg-error { background-color: var(--color-error); }
+.bg-info { background-color: var(--color-info); }
+.bg-surface { background-color: var(--color-surface); }
+.bg-surface-secondary { background-color: var(--color-surface-secondary); }
+
+.text-primary { color: var(--color-primary); }
+.text-secondary { color: var(--color-secondary); }
+.text-success { color: var(--color-success); }
+.text-warning { color: var(--color-warning); }
+.text-error { color: var(--color-error); }
+.text-info { color: var(--color-info); }
+.text-muted { color: var(--color-text-muted); }
+.text-accent { color: var(--color-accent); }
+
+.border-primary { border-color: var(--color-primary); }
+.border-secondary { border-color: var(--color-secondary); }
+.border-success { border-color: var(--color-success); }
+.border-warning { border-color: var(--color-warning); }
+.border-error { border-color: var(--color-error); }
+.border-info { border-color: var(--color-info); }
+.border-default { border-color: var(--color-border); }
+
+/* Responsive font scaling */
+@media (max-width: 640px) {
+  :root {
+    --font-size-xs: 0.7rem;
+    --font-size-sm: 0.8rem;
+    --font-size-base: 0.9rem;
+    --font-size-lg: 1rem;
+    --font-size-xl: 1.1rem;
+    --font-size-2xl: 1.3rem;
+    --font-size-3xl: 1.6rem;
+  }
+}
+
+/* High DPI display adjustments */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  :root {
+    --border-width-thin: 0.5px;
+  }
+}
+
+/* Prefers color scheme detection */
+@media (prefers-color-scheme: light) {
+  :root[data-theme="auto"] {
+    --color-background: #FFFFFF;
+    --color-surface: #F8FAFC;
+    --color-text: #1E293B;
+    /* Add other light mode variables */
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] {
+    --color-background: #0F172A;
+    --color-surface: #1E293B;
+    --color-text: #F8FAFC;
+    /* Add other dark mode variables */
+  }
+}
+
+/* Print styles */
+@media print {
+  :root {
+    --color-background: white;
+    --color-text: black;
+    --color-border: #ccc;
+    --shadow-sm: none;
+    --shadow-md: none;
+    --shadow-lg: none;
+    --shadow-xl: none;
+  }
+}

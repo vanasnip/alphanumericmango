@@ -1,0 +1,57 @@
+{
+  "theme": {
+    "mode": "dark",
+    "preset": "ocean",
+    "global": {
+      "colors": {
+        "primary": "#0EA5E9",
+        "secondary": "#06B6D4",
+        "success": "#10B981",
+        "warning": "#F59E0B",
+        "error": "#EF4444",
+        "background": "#0F172A",
+        "surface": "#1E293B",
+        "text": "#F1F5F9"
+      },
+      "typography": {
+        "fontFamily": "Inter, system-ui",
+        "fontSize": {
+          "base": "16px",
+          "scale": 1.25
+        }
+      },
+      "spacing": {
+        "unit": "0.25rem",
+        "scale": [1, 2, 3, 4, 6, 8, 12, 16, 24, 32]
+      },
+      "borders": {
+        "radius": {
+          "none": "0",
+          "sm": "0.125rem",
+          "md": "0.375rem",
+          "lg": "0.5rem",
+          "full": "9999px"
+        },
+        "width": "1px",
+        "style": "solid"
+      }
+    },
+    "components": {
+      "terminal": {
+        "inherit": false,
+        "background": "#0F172A",
+        "fontFamily": "JetBrains Mono, Fira Code, monospace",
+        "fontSize": "14px",
+        "lineHeight": 1.6,
+        "padding": "1rem"
+      },
+      "voiceIndicator": {
+        "inherit": true,
+        "overrides": {
+          "activeColor": "#0EA5E9",
+          "pulseAnimation": "2s ease-in-out infinite"
+        }
+      }
+    }
+  }
+}

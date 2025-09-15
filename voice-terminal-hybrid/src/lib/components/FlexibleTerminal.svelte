@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
+	import { Card, Button, Badge, Input, Tabs, TabItem } from 'flowbite-svelte';
 	import type { TerminalLine, VoiceRecognitionResult, ConversationMessage } from '../types.js';
 	import type { VoiceRecognition } from '../voiceRecognition.js';
 	import type { TextToSpeech } from '../textToSpeech.js';
@@ -9,6 +10,10 @@
 	import { createTextToSpeech } from '../textToSpeech.js';
 	import { enhancedAIHandler } from '../aiConversationEnhanced.js';
 	import { layoutStore } from '../stores/layoutStore.js';
+	import { themeStore, currentColors, terminalTheme } from '../stores/theme.js';
+	import { voiceNavigation } from '../voiceNavigation.js';
+	import ThemedButton from './themed/ThemedButton.svelte';
+	import VoiceIndicator from './themed/VoiceIndicator.svelte';
 	import VoiceCommandMenu from './VoiceCommandMenu.svelte';
 	import ProjectTabs from './ProjectTabs.svelte';
 
@@ -45,21 +50,36 @@
 	// Voice menu state
 	let showVoiceMenu = false;
 	
+	// Voice state tracking
+	let voiceState = 'idle'; // idle, listening, processing, speaking, error
+	
+	// Theme integration
+	$: colors = $currentColors;
+	$: terminal = $terminalTheme;
+	
 	// Initialize on mount
 	onMount(() => {
 		voiceRecognition = createVoiceRecognition();
 		textToSpeech = createTextToSpeech();
 		
+		// Load theme settings
+		themeStore.loadSettings();
+		themeStore.startWatching();
+		
 		// Initialize voice navigation
 		setupVoiceNavigation();
 		
-		// Welcome message
+		// Welcome message with themed styling
 		addLine('🤖 AI Terminal Assistant Ready', 'system', 'info');
 		addLine('Speak naturally to interact. Say "execute" to run commands.', 'system', 'info');
 		addLine('Use voice commands like "1", "2", "Project 1", or "Message 3" to navigate.', 'system', 'info');
 		
 		// Auto-focus input
 		if (inputElement) inputElement.focus();
+		
+		return () => {
+			themeStore.stopWatching();
+		};
 	});
 	
 	function setupVoiceNavigation() {
@@ -162,20 +182,30 @@
 				addLine(`🎤 Voice command: "${transcript}"`, 'system', 'info');
 				executeCommand(response.command);
 			}
-			textToSpeech?.speak("Command executed");
+			voiceState = 'speaking';
+			textToSpeech?.speak("Command executed", {
+				onEnd: () => {
+					isAISpeaking = false;
+					voiceState = 'idle';
+				}
+			});
 		} else if (response.type === 'ui-action') {
 			// Handle UI action responses
 			addLine(`🎨 UI Action: ${response.response}`, 'system', 'success');
+			voiceState = 'speaking';
 			textToSpeech?.speak(response.response, {
 				onEnd: () => {
 					isAISpeaking = false;
+					voiceState = 'idle';
 				}
 			});
 			isAISpeaking = true;
 		} else {
+			voiceState = 'speaking';
 			textToSpeech?.speak(response.response, {
 				onEnd: () => {
 					isAISpeaking = false;
+					voiceState = 'idle';
 				}
 			});
 			isAISpeaking = true;
@@ -189,18 +219,24 @@
 	function startVoiceRecording() {
 		if (!voiceRecognition || !voiceRecognition.supported) {
 			voiceError = 'Voice recognition is not supported in this browser';
+			voiceState = 'error';
 			showVoiceStatus = true;
-			setTimeout(() => showVoiceStatus = false, 3000);
+			setTimeout(() => {
+				showVoiceStatus = false;
+				voiceState = 'idle';
+			}, 3000);
 			return;
 		}
 
 		if (isRecording) {
 			voiceRecognition?.stop();
+			voiceState = 'idle';
 			return;
 		}
 
 		textToSpeech?.stop();
 		isAISpeaking = false;
+		voiceState = 'listening';
 
 		currentTranscript = '';
 		transcriptConfidence = 0;
@@ -211,20 +247,28 @@
 			(result: VoiceRecognitionResult) => {
 				currentTranscript = result.transcript;
 				transcriptConfidence = result.confidence;
+				voiceState = 'listening';
 				
 				if (result.isFinal) {
+					voiceState = 'processing';
 					handleVoiceInput(result.transcript);
 					showVoiceStatus = false;
+					voiceState = 'idle';
 				}
 			},
 			(error: string) => {
 				voiceError = error;
 				isRecording = false;
-				setTimeout(() => showVoiceStatus = false, 3000);
+				voiceState = 'error';
+				setTimeout(() => {
+					showVoiceStatus = false;
+					voiceState = 'idle';
+				}, 3000);
 			},
 			() => {
 				isRecording = false;
 				if (!voiceError) {
+					voiceState = 'idle';
 					setTimeout(() => showVoiceStatus = false, 1000);
 				}
 			}
@@ -307,72 +351,109 @@
 
 	$: isRecording = voiceRecognition?.listening || false;
 	$: layoutClass = `layout-${$layoutStore.mode} position-${$layoutStore.conversationPosition}`;
+
+	// Initialize global handlers
+	let numberedMessages = new Map();
+	let handleGlobalKeyDown = (event: KeyboardEvent) => {
+		if ((event.ctrlKey || event.metaKey) && event.key === '?') {
+			event.preventDefault();
+			showVoiceMenu = true;
+		}
+	};
 </script>
 
 <svelte:window on:keydown={handleGlobalKeyDown} />
 
-<div class="flexible-terminal {layoutClass}" class:dragging={isDragging}>
+<div class="themed-terminal {layoutClass}" class:dragging={isDragging} style="
+	--terminal-bg: {colors.background};
+	--terminal-surface: {colors.surface};
+	--terminal-text: {colors.text};
+	--terminal-primary: {colors.primary};
+	--terminal-secondary: {colors.secondary};
+	--terminal-success: {colors.success};
+	--terminal-warning: {colors.warning};
+	--terminal-error: {colors.error};
+">
 	<!-- Project Tabs -->
 	<ProjectTabs />
 	
-	<!-- Layout Controls -->
-	<div class="layout-controls">
-		<div class="control-group">
-			<button 
-				class="layout-btn"
-				class:active={$layoutStore.mode === 'vertical'}
-				on:click={() => layoutStore.setMode('vertical')}
-				title="Vertical split"
-			>
-				⬌
-			</button>
-			<button 
-				class="layout-btn"
-				class:active={$layoutStore.mode === 'horizontal'}
-				on:click={() => layoutStore.setMode('horizontal')}
-				title="Horizontal split"
-			>
-				⬍
-			</button>
-			<button 
-				class="layout-btn swap"
-				on:click={() => layoutStore.swapPanels()}
-				title="Swap panels"
-			>
-				🔄
-			</button>
+	<!-- Layout Controls Header -->
+	<Card class="layout-controls theme-surface" size="none">
+		<div class="control-header">
+			<div class="control-group">
+				<ThemedButton 
+					variant={$layoutStore.mode === 'vertical' ? 'primary' : 'secondary'}
+					size="sm"
+					on:click={() => layoutStore.setMode('vertical')}
+					customClass="layout-control"
+				>
+					⬌
+				</ThemedButton>
+				<ThemedButton 
+					variant={$layoutStore.mode === 'horizontal' ? 'primary' : 'secondary'}
+					size="sm"
+					on:click={() => layoutStore.setMode('horizontal')}
+					customClass="layout-control"
+				>
+					⬍
+				</ThemedButton>
+				<ThemedButton 
+					variant="accent"
+					size="sm"
+					on:click={() => layoutStore.swapPanels()}
+					customClass="swap-control"
+				>
+					🔄
+				</ThemedButton>
+			</div>
+			
+			<div class="title-section">
+				<h1 class="terminal-title">🤖 AI Voice Terminal</h1>
+				<Badge color="blue" class="theme-badge">{$themeStore.preset} theme</Badge>
+			</div>
+			
+			<div class="control-group">
+				{#if voiceRecognition?.supported}
+					<VoiceIndicator 
+						state={voiceState}
+						confidence={transcriptConfidence}
+						size="sm"
+						on:click={startVoiceRecording}
+						customClass="header-voice-indicator"
+					/>
+				{/if}
+				<ThemedButton 
+					variant="info"
+					size="sm"
+					on:click={() => showVoiceMenu = true}
+					title="Show voice commands (Ctrl+? or Cmd+?)"
+				>
+					❓
+				</ThemedButton>
+			</div>
 		</div>
-		<div class="title">🤖 AI Voice Terminal</div>
-		<div class="control-group">
-			{#if voiceRecognition?.supported}
-				<span class="voice-indicator" class:active={isRecording}>
-					🎤 {isRecording ? 'Listening' : 'Ready'}
-				</span>
-			{/if}
-			<button 
-				class="voice-menu-btn"
-				on:click={() => showVoiceMenu = true}
-				title="Show voice commands (Ctrl+? or Cmd+?)"
-			>
-				❓
-			</button>
-		</div>
-	</div>
+	</Card>
 
 	<div class="layout-container" style="--split-ratio: {$layoutStore.splitRatio}">
 		<!-- Terminal Panel -->
-		<div class="terminal-panel">
-			<div class="panel-header">
-				<span class="panel-title">Terminal</span>
-				<button 
-					class="clear-btn" 
+		<Card class="terminal-panel theme-surface" size="none">
+			<div class="panel-header" slot="header">
+				<div class="header-content">
+					<h3 class="panel-title">Terminal</h3>
+					<Badge color="green" size="sm">Active</Badge>
+				</div>
+				<ThemedButton 
+					variant="warning"
+					size="xs" 
 					on:click={() => lines = []}
 					title="Clear terminal"
+					customClass="clear-control"
 				>
 					Clear
-				</button>
+				</ThemedButton>
 			</div>
-			<div class="terminal-output" bind:this={outputElement}>
+			
+			<div class="terminal-output themed-terminal" bind:this={outputElement}>
 				{#each lines as line (line.id)}
 					<div 
 						class="terminal-line {line.type}" 
@@ -380,31 +461,37 @@
 						transition:fly={{ y: 10, duration: 200 }}
 					>
 						{#if line.type === 'command'}
-							<span class="prompt">$</span> {line.content.substring(2)}
+							<span class="prompt">$</span> 
+							<span class="command-text">{line.content.substring(2)}</span>
 						{:else if line.type === 'system'}
-							<span class="system-marker">[SYS]</span> {line.content}
+							<Badge color="purple" size="xs" class="system-badge">[SYS]</Badge>
+							<span class="system-content">{line.content}</span>
 						{:else}
 							<span class="output-content {line.outputType}">{line.content}</span>
 						{/if}
 					</div>
 				{/each}
 			</div>
+			
 			<div class="terminal-input-area">
-				<span class="prompt">$</span>
-				<input
-					bind:this={inputElement}
-					bind:value={currentInput}
-					on:keydown={handleKeyDown}
-					type="text"
-					class="terminal-input"
-					placeholder="Type command..."
-				/>
+				<div class="input-wrapper">
+					<span class="input-prompt">$</span>
+					<Input
+						bind:this={inputElement}
+						bind:value={currentInput}
+						on:keydown={handleKeyDown}
+						type="text"
+						class="terminal-input themed-input"
+						placeholder="Type command..."
+						size="md"
+					/>
+				</div>
 			</div>
-		</div>
+		</Card>
 
 		<!-- Resize Handle -->
 		<div 
-			class="split-handle"
+			class="split-handle themed-handle"
 			bind:this={splitHandle}
 			on:mousedown={handleMouseDown}
 		>
@@ -412,63 +499,92 @@
 		</div>
 
 		<!-- Conversation Panel -->
-		<div class="conversation-panel">
-			<div class="panel-header">
-				<span class="panel-title">AI Assistant</span>
-				<button 
-					class="clear-btn" 
+		<Card class="conversation-panel theme-surface" size="none">
+			<div class="panel-header" slot="header">
+				<div class="header-content">
+					<h3 class="panel-title">AI Assistant</h3>
+					<Badge color={isAISpeaking ? 'yellow' : 'blue'} size="sm">
+						{isAISpeaking ? 'Speaking' : 'Ready'}
+					</Badge>
+				</div>
+				<ThemedButton 
+					variant="warning"
+					size="xs" 
 					on:click={clearConversation}
 					title="Clear conversation"
+					customClass="clear-control"
 				>
 					Clear
-				</button>
+				</ThemedButton>
 			</div>
-			<div class="conversation-messages" bind:this={conversationElement}>
+			
+			<div class="conversation-messages themed-conversation" bind:this={conversationElement}>
 				{#each conversation as msg, index (msg.id)}
-					<div class="message {msg.role}" transition:fade>
-						<div class="message-role">{msg.role === 'user' ? '👤' : '🤖'}</div>
-						<div class="message-content">{msg.content}</div>
+					<div transition:fade>
+						<Card class="message {msg.role} theme-message" size="sm">
+							<div class="message-header">
+								<div class="message-avatar">
+									{msg.role === 'user' ? '👤' : '🤖'}
+								</div>
+								<Badge color={msg.role === 'user' ? 'green' : 'blue'} size="xs">
+									{msg.role === 'user' ? 'You' : 'AI'}
+								</Badge>
+							</div>
+							<div class="message-content themed-text">{msg.content}</div>
+						</Card>
 					</div>
 				{/each}
+				
 				{#if isAISpeaking}
-					<div class="speaking-indicator">
-						<span class="dot"></span>
-						<span class="dot"></span>
-						<span class="dot"></span>
-					</div>
+					<Card class="speaking-indicator theme-indicator" size="sm">
+						<div class="dots-container">
+							<span class="dot"></span>
+							<span class="dot"></span>
+							<span class="dot"></span>
+						</div>
+						<span class="speaking-text">AI is responding...</span>
+					</Card>
 				{/if}
 			</div>
+			
 			{#if pendingCommand}
-				<div class="pending-command" transition:fade>
-					<code>{pendingCommand}</code>
-					<span class="hint">Say "execute"</span>
+				<div transition:fade>
+					<Card class="pending-command theme-pending">
+					<div class="pending-content">
+						<Badge color="orange" class="pending-label">Pending</Badge>
+						<code class="pending-code">{pendingCommand}</code>
+						<span class="pending-hint">Say "execute"</span>
+					</div>
+				</Card>
 				</div>
 			{/if}
+			
 			<div class="voice-control-area">
-				<button 
-					class="voice-button" 
-					class:recording={isRecording}
-					class:speaking={isAISpeaking}
+				<VoiceIndicator 
+					state={voiceState}
+					confidence={transcriptConfidence}
+					size="lg"
+					showConfidence={showVoiceStatus}
 					on:click={startVoiceRecording}
 					disabled={!voiceRecognition?.supported}
-				>
-					{#if isRecording}
-						<span class="pulse"></span>
-						🎤 Listening...
-					{:else if isAISpeaking}
-						🔊 Speaking...
-					{:else}
-						🎤 Click to Speak
-					{/if}
-				</button>
+					customClass="main-voice-control"
+				/>
+				
 				{#if showVoiceStatus && currentTranscript}
-					<div class="transcript-display" transition:fade>
-						"{currentTranscript}"
-						<span class="confidence">({Math.round(transcriptConfidence * 100)}%)</span>
+					<div transition:fade>
+						<Card class="transcript-display theme-transcript">
+							<div class="transcript-content">
+								<Badge color="blue" size="xs">Transcript</Badge>
+								<span class="transcript-text">"{currentTranscript}"</span>
+								<Badge color="green" size="xs" class="confidence-badge">
+									{Math.round(transcriptConfidence * 100)}%
+							</Badge>
+						</div>
+					</Card>
 					</div>
 				{/if}
 			</div>
-		</div>
+		</Card>
 	</div>
 </div>
 
@@ -476,22 +592,32 @@
 <VoiceCommandMenu bind:isVisible={showVoiceMenu} />
 
 <style>
-	.flexible-terminal {
+	/* Theme-aware base styles */
+	.themed-terminal {
 		display: flex;
 		flex-direction: column;
 		height: 100vh;
-		background: #0a0a0a;
-		color: #00ff00;
-		font-family: 'Monaco', 'Menlo', monospace;
+		background: var(--terminal-bg);
+		color: var(--terminal-text);
+		font-family: var(--font-family, 'Inter, system-ui');
+		transition: all 0.3s ease;
 	}
 
-	.layout-controls {
+	/* Layout controls styling */
+	:global(.layout-controls) {
+		border: none !important;
+		border-radius: 0 !important;
+		background: var(--terminal-surface) !important;
+		border-bottom: 2px solid var(--terminal-primary) !important;
+		padding: 1rem !important;
+	}
+
+	.control-header {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: 0.75rem 1rem;
-		background: #1a1a1a;
-		border-bottom: 2px solid #00ff00;
+		width: 100%;
+		gap: 1rem;
 	}
 
 	.control-group {
@@ -500,73 +626,36 @@
 		align-items: center;
 	}
 
-	.numbered-control {
-		position: relative;
+	.title-section {
 		display: flex;
+		flex-direction: column;
 		align-items: center;
 		gap: 0.25rem;
 	}
 
-	.layout-btn {
-		padding: 0.5rem;
-		background: #0a0a0a;
-		color: #00ff00;
-		border: 1px solid #333;
-		border-radius: 4px;
-		cursor: pointer;
-		font-size: 1.2rem;
-		transition: all 0.2s;
-		min-width: 36px;
+	.terminal-title {
+		font-size: 1.25rem;
+		font-weight: 700;
+		color: var(--terminal-text);
+		margin: 0;
+		text-align: center;
 	}
 
-	.layout-btn:hover {
-		border-color: #00ff00;
+	:global(.theme-badge) {
+		text-transform: capitalize;
 	}
 
-	.layout-btn.active {
-		background: #00ff00;
-		color: #0a0a0a;
-		border-color: #00ff00;
-	}
-
-	.layout-btn.swap {
-		font-size: 1rem;
-	}
-
-	.title {
+	:global(.layout-control),
+	:global(.swap-control) {
+		min-width: 40px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		font-size: 1.1rem;
-		font-weight: bold;
 	}
 
-	.voice-indicator {
-		padding: 0.5rem;
-		border-radius: 4px;
-		background: #0a0a0a;
-		border: 1px solid #333;
-		font-size: 0.9rem;
-	}
-
-	.voice-indicator.active {
-		border-color: #ff0000;
-		color: #ff0000;
-		animation: pulse 1s infinite;
-	}
-
-	.voice-menu-btn {
-		padding: 0.5rem;
-		background: #0a0a0a;
-		color: #00ff00;
-		border: 1px solid #333;
-		border-radius: 4px;
-		cursor: pointer;
-		font-size: 1rem;
-		transition: all 0.2s;
-		min-width: 36px;
-	}
-
-	.voice-menu-btn:hover {
-		border-color: #00ff00;
-		background: #1a2a1a;
+	:global(.header-voice-indicator) {
+		margin: 0;
 	}
 
 	/* Layout Container */
@@ -575,6 +664,7 @@
 		display: flex;
 		overflow: hidden;
 		position: relative;
+		gap: 0;
 	}
 
 	/* Vertical Layout (side by side) */
@@ -582,30 +672,35 @@
 		flex-direction: row;
 	}
 
-	.layout-vertical.position-left .terminal-panel {
+	.layout-vertical.position-left :global(.terminal-panel) {
 		order: 2;
 		width: calc((1 - var(--split-ratio)) * 100%);
+		flex-shrink: 0;
 	}
 
-	.layout-vertical.position-left .conversation-panel {
+	.layout-vertical.position-left :global(.conversation-panel) {
 		order: 1;
 		width: calc(var(--split-ratio) * 100%);
+		flex-shrink: 0;
 	}
 
-	.layout-vertical.position-right .terminal-panel {
+	.layout-vertical.position-right :global(.terminal-panel) {
 		order: 1;
 		width: calc((1 - var(--split-ratio)) * 100%);
+		flex-shrink: 0;
 	}
 
-	.layout-vertical.position-right .conversation-panel {
+	.layout-vertical.position-right :global(.conversation-panel) {
 		order: 3;
 		width: calc(var(--split-ratio) * 100%);
+		flex-shrink: 0;
 	}
 
-	.layout-vertical .split-handle {
+	.layout-vertical .themed-handle {
 		order: 2;
 		width: 4px;
 		cursor: col-resize;
+		flex-shrink: 0;
 	}
 
 	/* Horizontal Layout (top/bottom) */
@@ -613,43 +708,50 @@
 		flex-direction: column;
 	}
 
-	.layout-horizontal.position-top .terminal-panel {
+	.layout-horizontal.position-top :global(.terminal-panel) {
 		order: 2;
 		height: calc((1 - var(--split-ratio)) * 100%);
+		flex-shrink: 0;
 	}
 
-	.layout-horizontal.position-top .conversation-panel {
+	.layout-horizontal.position-top :global(.conversation-panel) {
 		order: 1;
 		height: calc(var(--split-ratio) * 100%);
+		flex-shrink: 0;
 	}
 
-	.layout-horizontal.position-bottom .terminal-panel {
+	.layout-horizontal.position-bottom :global(.terminal-panel) {
 		order: 1;
 		height: calc((1 - var(--split-ratio)) * 100%);
+		flex-shrink: 0;
 	}
 
-	.layout-horizontal.position-bottom .conversation-panel {
+	.layout-horizontal.position-bottom :global(.conversation-panel) {
 		order: 3;
 		height: calc(var(--split-ratio) * 100%);
+		flex-shrink: 0;
 	}
 
-	.layout-horizontal .split-handle {
+	.layout-horizontal .themed-handle {
 		order: 2;
 		height: 4px;
 		width: 100%;
 		cursor: row-resize;
+		flex-shrink: 0;
 	}
 
 	/* Split Handle */
-	.split-handle {
-		background: #1a1a1a;
+	.themed-handle {
+		background: var(--terminal-surface);
 		position: relative;
 		transition: background 0.2s;
 		user-select: none;
+		border: 1px solid color-mix(in srgb, var(--terminal-primary) 30%, transparent);
 	}
 
-	.split-handle:hover {
-		background: #2a2a2a;
+	.themed-handle:hover {
+		background: var(--terminal-primary);
+		border-color: var(--terminal-primary);
 	}
 
 	.handle-grip {
@@ -659,26 +761,28 @@
 		transform: translate(-50%, -50%);
 		width: 30px;
 		height: 30px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 	}
 
 	.layout-vertical .handle-grip::after {
 		content: '⋮';
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		transform: translate(-50%, -50%);
-		color: #666;
+		color: var(--terminal-text);
 		font-size: 1.2rem;
+		opacity: 0.6;
 	}
 
 	.layout-horizontal .handle-grip::after {
 		content: '⋯';
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		transform: translate(-50%, -50%);
-		color: #666;
+		color: var(--terminal-text);
 		font-size: 1.2rem;
+		opacity: 0.6;
+	}
+
+	.themed-handle:hover .handle-grip::after {
+		opacity: 1;
+		color: var(--terminal-bg);
 	}
 
 	.dragging {
@@ -686,309 +790,435 @@
 		cursor: grabbing !important;
 	}
 
-	/* Panels */
-	.terminal-panel,
-	.conversation-panel {
-		display: flex;
-		flex-direction: column;
-		background: #0a0a0a;
-		overflow: hidden;
+	/* Panel Styling */
+	:global(.terminal-panel),
+	:global(.conversation-panel) {
+		display: flex !important;
+		flex-direction: column !important;
+		background: var(--terminal-surface) !important;
+		border: 1px solid color-mix(in srgb, var(--terminal-primary) 20%, transparent) !important;
+		border-radius: 0 !important;
+		overflow: hidden !important;
+		height: 100%;
+		box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 	}
 
 	.panel-header {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: 0.5rem 1rem;
-		background: #1a1a1a;
-		border-bottom: 1px solid #333;
-	}
-
-	.panel-title {
-		font-weight: bold;
-		color: #00ff00;
-	}
-
-	.clear-btn {
-		padding: 0.25rem 0.5rem;
-		background: #333;
-		color: #00ff00;
-		border: none;
-		border-radius: 3px;
-		cursor: pointer;
-		font-size: 0.8rem;
-	}
-
-	.clear-btn:hover {
-		background: #444;
-	}
-
-	/* Terminal Panel */
-	.terminal-output {
-		flex: 1;
-		overflow-y: auto;
-		padding: 1rem;
-		font-size: 0.9rem;
-		line-height: 1.5;
-	}
-
-	.terminal-line {
-		margin-bottom: 0.5rem;
-		word-wrap: break-word;
-	}
-
-	.terminal-line.command {
-		color: #00aaff;
-	}
-
-	.terminal-line.system {
-		color: #ffaa00;
-		font-style: italic;
-	}
-
-	.output-content.success { color: #00ff00; }
-	.output-content.error { color: #ff3333; }
-	.output-content.info { color: #00aaff; }
-	.output-content.warning { color: #ffaa00; }
-
-	.terminal-input-area {
 		padding: 0.75rem 1rem;
-		background: #1a1a1a;
-		border-top: 1px solid #333;
+		background: var(--terminal-bg);
+		border-bottom: 2px solid var(--terminal-primary);
+		color: var(--terminal-text);
+	}
+
+	.header-content {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
 	}
 
-	.prompt {
-		color: #00ff00;
-		font-weight: bold;
+	.panel-title {
+		font-weight: 600;
+		font-size: 1rem;
+		color: var(--terminal-text);
+		margin: 0;
 	}
 
-	.terminal-input {
+	:global(.clear-control) {
+		min-width: 60px;
+	}
+
+	/* Terminal Output Styling */
+	.terminal-output {
 		flex: 1;
-		background: transparent;
-		border: none;
-		color: #00ff00;
-		font-family: inherit;
-		font-size: inherit;
-		outline: none;
+		overflow-y: auto;
+		padding: 1rem;
+		background: var(--terminal-bg);
+		font-family: var(--font-family-mono, 'JetBrains Mono, Fira Code, monospace');
+		font-size: 0.9rem;
+		line-height: 1.6;
+		color: var(--terminal-text);
 	}
 
-	/* Conversation Panel */
+	.terminal-line {
+		margin-bottom: 0.75rem;
+		word-wrap: break-word;
+		display: flex;
+		align-items: flex-start;
+		gap: 0.5rem;
+		padding: 0.25rem 0;
+		transition: all 0.2s ease;
+	}
+
+	.terminal-line.typing {
+		opacity: 0.8;
+		animation: typing 1s ease-in-out infinite alternate;
+	}
+
+	.terminal-line.command {
+		color: var(--terminal-primary);
+		font-weight: 500;
+	}
+
+	.terminal-line.system {
+		color: var(--terminal-secondary);
+		font-style: italic;
+		align-items: center;
+	}
+
+	.prompt {
+		color: var(--terminal-success);
+		font-weight: bold;
+		flex-shrink: 0;
+	}
+
+	.command-text {
+		color: var(--terminal-primary);
+	}
+
+	:global(.system-badge) {
+		flex-shrink: 0;
+	}
+
+	.system-content {
+		color: var(--terminal-secondary);
+		font-style: italic;
+	}
+
+	.output-content {
+		color: var(--terminal-text);
+	}
+
+	.output-content.success { color: var(--terminal-success); }
+	.output-content.error { color: var(--terminal-error); }
+	.output-content.info { color: var(--terminal-primary); }
+	.output-content.warning { color: var(--terminal-warning); }
+
+	/* Terminal Input Area */
+	.terminal-input-area {
+		padding: 1rem;
+		background: var(--terminal-bg);
+		border-top: 2px solid var(--terminal-primary);
+	}
+
+	.input-wrapper {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.input-prompt {
+		color: var(--terminal-success);
+		font-weight: bold;
+		font-family: var(--font-family-mono, monospace);
+		flex-shrink: 0;
+	}
+
+	:global(.terminal-input) {
+		flex: 1 !important;
+		background: var(--terminal-surface) !important;
+		border: 2px solid color-mix(in srgb, var(--terminal-primary) 30%, transparent) !important;
+		color: var(--terminal-text) !important;
+		font-family: var(--font-family-mono, monospace) !important;
+		font-size: inherit !important;
+		border-radius: 6px !important;
+		transition: all 0.2s ease !important;
+	}
+
+	:global(.terminal-input:focus) {
+		border-color: var(--terminal-primary) !important;
+		box-shadow: 0 0 0 3px color-mix(in srgb, var(--terminal-primary) 20%, transparent) !important;
+	}
+
+	/* Conversation Messages */
 	.conversation-messages {
 		flex: 1;
 		overflow-y: auto;
 		padding: 1rem;
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
+		gap: 0.75rem;
+		background: var(--terminal-bg);
 	}
 
-	.message {
+	:global(.message) {
+		border: 1px solid color-mix(in srgb, var(--terminal-primary) 20%, transparent) !important;
+		transition: all 0.2s ease !important;
+		position: relative !important;
+	}
+
+	:global(.message.user) {
+		background: color-mix(in srgb, var(--terminal-success) 5%, var(--terminal-surface)) !important;
+		border-color: color-mix(in srgb, var(--terminal-success) 30%, transparent) !important;
+		margin-left: 2rem !important;
+		margin-right: 0 !important;
+	}
+
+	:global(.message.assistant) {
+		background: color-mix(in srgb, var(--terminal-primary) 5%, var(--terminal-surface)) !important;
+		border-color: color-mix(in srgb, var(--terminal-primary) 30%, transparent) !important;
+		margin-right: 2rem !important;
+		margin-left: 0 !important;
+	}
+
+	.message-header {
 		display: flex;
+		align-items: center;
 		gap: 0.5rem;
-		padding: 0.5rem;
-		border-radius: 6px;
-		background: #1a1a1a;
-		position: relative;
+		margin-bottom: 0.5rem;
 	}
 
-	.message-number {
-		position: absolute;
-		left: -32px;
-		top: 50%;
-		transform: translateY(-50%);
-	}
-
-	.message.user {
-		background: #1a2a1a;
-		margin-left: 3rem; /* Extra space for number badge */
-	}
-
-	.message.assistant {
-		background: #1a1a2a;
-		margin-right: 2rem;
-		margin-left: 3rem; /* Extra space for number badge */
-	}
-
-	.message-role {
-		font-size: 1.2rem;
+	.message-avatar {
+		font-size: 1.25rem;
 		flex-shrink: 0;
 	}
 
 	.message-content {
-		line-height: 1.4;
+		line-height: 1.5;
+		color: var(--terminal-text);
 		flex: 1;
 	}
 
-	.speaking-indicator {
+	/* Speaking Indicator */
+	:global(.speaking-indicator) {
+		background: color-mix(in srgb, var(--terminal-warning) 10%, var(--terminal-surface)) !important;
+		border-color: var(--terminal-warning) !important;
+		display: flex !important;
+		flex-direction: column !important;
+		align-items: center !important;
+		gap: 0.5rem !important;
+	}
+
+	.dots-container {
 		display: flex;
-		gap: 0.3rem;
-		padding: 0.5rem;
+		gap: 0.4rem;
 		justify-content: center;
 	}
 
-	.speaking-indicator .dot {
-		width: 8px;
-		height: 8px;
-		background: #00ff00;
+	.dot {
+		width: 10px;
+		height: 10px;
+		background: var(--terminal-warning);
 		border-radius: 50%;
 		animation: speaking 1.4s infinite;
 	}
 
-	.speaking-indicator .dot:nth-child(2) { animation-delay: 0.2s; }
-	.speaking-indicator .dot:nth-child(3) { animation-delay: 0.4s; }
+	.dot:nth-child(2) { animation-delay: 0.2s; }
+	.dot:nth-child(3) { animation-delay: 0.4s; }
 
-	.pending-command {
-		padding: 0.5rem 1rem;
-		background: #1a3a1a;
-		border-top: 1px solid #00ff00;
+	.speaking-text {
+		color: var(--terminal-warning);
+		font-weight: 500;
+		font-size: 0.9rem;
+	}
+
+	/* Pending Command */
+	:global(.pending-command) {
+		background: color-mix(in srgb, var(--terminal-warning) 10%, var(--terminal-surface)) !important;
+		border: 2px solid var(--terminal-warning) !important;
+		margin: 0.5rem !important;
+	}
+
+	.pending-content {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 		gap: 1rem;
+		width: 100%;
 	}
 
-	.pending-command code {
-		padding: 0.25rem 0.5rem;
-		background: #0a0a0a;
-		border-radius: 3px;
+	:global(.pending-label) {
+		flex-shrink: 0;
+	}
+
+	.pending-code {
+		padding: 0.5rem;
+		background: var(--terminal-bg);
+		border-radius: 4px;
 		flex: 1;
+		color: var(--terminal-text);
+		font-family: var(--font-family-mono, monospace);
+		font-size: 0.9rem;
 	}
 
-	.pending-command .hint {
+	.pending-hint {
 		font-size: 0.8rem;
-		opacity: 0.7;
+		color: var(--terminal-warning);
+		font-weight: 500;
+		flex-shrink: 0;
 	}
 
+	/* Voice Control Area */
 	.voice-control-area {
 		padding: 1rem;
-		background: #1a1a1a;
-		border-top: 1px solid #333;
+		background: var(--terminal-bg);
+		border-top: 2px solid var(--terminal-primary);
 		display: flex;
 		flex-direction: column;
 		align-items: center;
+		gap: 1rem;
+	}
+
+	:global(.main-voice-control) {
+		margin: 0;
+	}
+
+	/* Transcript Display */
+	:global(.transcript-display) {
+		background: color-mix(in srgb, var(--terminal-primary) 10%, var(--terminal-surface)) !important;
+		border: 2px solid var(--terminal-primary) !important;
+		width: 100% !important;
+	}
+
+	.transcript-content {
+		display: flex;
+		align-items: center;
 		gap: 0.5rem;
+		flex-wrap: wrap;
 	}
 
-	.voice-button {
-		padding: 0.75rem 1.5rem;
-		font-size: 1rem;
-		background: #1a1a1a;
-		color: #00ff00;
-		border: 2px solid #00ff00;
-		border-radius: 25px;
-		cursor: pointer;
-		transition: all 0.3s;
-		position: relative;
+	.transcript-text {
+		flex: 1;
+		color: var(--terminal-text);
+		font-style: italic;
+		min-width: 0;
+		word-break: break-word;
 	}
 
-	.voice-button:hover:not(:disabled) {
-		background: #00ff00;
-		color: #0a0a0a;
-	}
-
-	.voice-button.recording {
-		border-color: #ff0000;
-		color: #ff0000;
-		animation: pulse 1s infinite;
-	}
-
-	.voice-button.speaking {
-		border-color: #00aaff;
-		color: #00aaff;
-	}
-
-	.voice-button:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	.pulse {
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		transform: translate(-50%, -50%);
-		width: 100%;
-		height: 100%;
-		border: 2px solid #ff0000;
-		border-radius: 25px;
-		animation: pulse-ring 1s infinite;
-	}
-
-	.transcript-display {
-		padding: 0.5rem;
-		background: #1a1a1a;
-		border-radius: 4px;
-		border: 1px solid #333;
-		font-size: 0.9rem;
-		max-width: 100%;
-		text-align: center;
-	}
-
-	.transcript-display .confidence {
-		opacity: 0.7;
-		font-size: 0.8rem;
-		margin-left: 0.5rem;
+	:global(.confidence-badge) {
+		flex-shrink: 0;
 	}
 
 	/* Animations */
-	@keyframes pulse {
-		0%, 100% { opacity: 1; }
-		50% { opacity: 0.7; }
-	}
-
-	@keyframes pulse-ring {
-		0% {
-			transform: translate(-50%, -50%) scale(1);
-			opacity: 1;
-		}
-		100% {
-			transform: translate(-50%, -50%) scale(1.3);
-			opacity: 0;
-		}
+	@keyframes typing {
+		0% { opacity: 0.8; }
+		100% { opacity: 1; }
 	}
 
 	@keyframes speaking {
 		0%, 60%, 100% {
 			transform: scale(1);
-			opacity: 0.3;
+			opacity: 0.4;
 		}
 		30% {
-			transform: scale(1.3);
+			transform: scale(1.4);
 			opacity: 1;
 		}
 	}
 
-	/* Scrollbar */
-	::-webkit-scrollbar {
-		width: 6px;
-		height: 6px;
+	/* Theme Transitions */
+	:global(.theme-transition) {
+		transition: all 0.3s ease;
 	}
 
-	::-webkit-scrollbar-track {
-		background: #0a0a0a;
+	:global(.theme-surface) {
+		background: var(--terminal-surface) !important;
+		color: var(--terminal-text) !important;
 	}
 
-	::-webkit-scrollbar-thumb {
-		background: #333;
-		border-radius: 3px;
+	:global(.themed-text) {
+		color: var(--terminal-text) !important;
 	}
 
-	::-webkit-scrollbar-thumb:hover {
-		background: #00ff00;
+	:global(.themed-input) {
+		background: var(--terminal-bg) !important;
+		border-color: var(--terminal-primary) !important;
+		color: var(--terminal-text) !important;
 	}
 
-	/* Responsive adjustments */
+	/* High Contrast Mode */
+	@media (prefers-contrast: high) {
+		.themed-terminal {
+			--terminal-bg: #000000;
+			--terminal-surface: #1a1a1a;
+			--terminal-text: #ffffff;
+		}
+		
+		:global(.message) {
+			border-width: 2px !important;
+		}
+	}
+
+	/* Custom Scrollbar */
+	.terminal-output::-webkit-scrollbar,
+	.conversation-messages::-webkit-scrollbar {
+		width: 8px;
+		height: 8px;
+	}
+
+	.terminal-output::-webkit-scrollbar-track,
+	.conversation-messages::-webkit-scrollbar-track {
+		background: var(--terminal-bg);
+		border-radius: 4px;
+	}
+
+	.terminal-output::-webkit-scrollbar-thumb,
+	.conversation-messages::-webkit-scrollbar-thumb {
+		background: color-mix(in srgb, var(--terminal-primary) 40%, transparent);
+		border-radius: 4px;
+		border: 1px solid var(--terminal-bg);
+	}
+
+	.terminal-output::-webkit-scrollbar-thumb:hover,
+	.conversation-messages::-webkit-scrollbar-thumb:hover {
+		background: var(--terminal-primary);
+	}
+
+	/* Responsive Design */
 	@media (max-width: 768px) {
 		.layout-container {
 			--split-ratio: 0.5 !important;
 		}
 		
-		.message.user,
-		.message.assistant {
-			margin: 0;
+		.control-header {
+			flex-direction: column;
+			gap: 0.75rem;
+			align-items: center;
+		}
+		
+		.title-section {
+			order: -1;
+		}
+		
+		:global(.message.user),
+		:global(.message.assistant) {
+			margin-left: 0 !important;
+			margin-right: 0 !important;
+		}
+		
+		.terminal-output,
+		.conversation-messages {
+			padding: 0.75rem;
+		}
+		
+		.terminal-input-area,
+		.voice-control-area {
+			padding: 0.75rem;
+		}
+	}
+
+	@media (max-width: 480px) {
+		.terminal-title {
+			font-size: 1rem;
+		}
+		
+		.control-group {
+			gap: 0.25rem;
+		}
+		
+		.terminal-line {
+			flex-direction: column;
+			gap: 0.25rem;
+		}
+	}
+
+	/* Reduced Motion */
+	@media (prefers-reduced-motion: reduce) {
+		* {
+			animation: none !important;
+			transition: none !important;
 		}
 	}
 </style>

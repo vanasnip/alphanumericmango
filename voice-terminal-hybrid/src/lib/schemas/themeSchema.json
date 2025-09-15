@@ -1,0 +1,174 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Voice Terminal Hybrid Theme Configuration",
+  "type": "object",
+  "required": ["theme"],
+  "properties": {
+    "theme": {
+      "type": "object",
+      "required": ["mode", "preset", "global"],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["dark", "light", "auto"],
+          "description": "Theme color mode"
+        },
+        "preset": {
+          "type": "string",
+          "enum": ["default", "ocean", "forest", "custom"],
+          "description": "Theme preset name"
+        },
+        "global": {
+          "type": "object",
+          "required": ["colors", "typography", "spacing", "borders"],
+          "properties": {
+            "colors": {
+              "type": "object",
+              "required": ["primary", "secondary", "success", "warning", "error", "background", "surface", "text"],
+              "properties": {
+                "primary": { "$ref": "#/definitions/color" },
+                "secondary": { "$ref": "#/definitions/color" },
+                "success": { "$ref": "#/definitions/color" },
+                "warning": { "$ref": "#/definitions/color" },
+                "error": { "$ref": "#/definitions/color" },
+                "background": { "$ref": "#/definitions/color" },
+                "surface": { "$ref": "#/definitions/color" },
+                "text": { "$ref": "#/definitions/color" }
+              },
+              "additionalProperties": { "$ref": "#/definitions/color" }
+            },
+            "typography": {
+              "type": "object",
+              "required": ["fontFamily", "fontSize"],
+              "properties": {
+                "fontFamily": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9\\s,\\-'\"]+$",
+                  "description": "CSS font family string"
+                },
+                "fontSize": {
+                  "type": "object",
+                  "required": ["base", "scale"],
+                  "properties": {
+                    "base": {
+                      "type": "string",
+                      "pattern": "^\\d+(\\.\\d+)?(px|em|rem|%)$",
+                      "description": "Base font size with CSS unit"
+                    },
+                    "scale": {
+                      "type": "number",
+                      "minimum": 1,
+                      "maximum": 3,
+                      "description": "Font size scale ratio"
+                    }
+                  }
+                }
+              }
+            },
+            "spacing": {
+              "type": "object",
+              "required": ["unit", "scale"],
+              "properties": {
+                "unit": {
+                  "type": "string",
+                  "pattern": "^\\d+(\\.\\d+)?(px|em|rem)$",
+                  "description": "Base spacing unit with CSS unit"
+                },
+                "scale": {
+                  "type": "array",
+                  "items": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "minItems": 1,
+                  "maxItems": 20,
+                  "description": "Spacing scale multipliers"
+                }
+              }
+            },
+            "borders": {
+              "type": "object",
+              "required": ["radius", "width", "style"],
+              "properties": {
+                "radius": {
+                  "type": "object",
+                  "required": ["none", "sm", "md", "lg", "full"],
+                  "properties": {
+                    "none": { "$ref": "#/definitions/cssLength" },
+                    "sm": { "$ref": "#/definitions/cssLength" },
+                    "md": { "$ref": "#/definitions/cssLength" },
+                    "lg": { "$ref": "#/definitions/cssLength" },
+                    "full": { "$ref": "#/definitions/cssLength" }
+                  },
+                  "additionalProperties": { "$ref": "#/definitions/cssLength" }
+                },
+                "width": { "$ref": "#/definitions/cssLength" },
+                "style": {
+                  "type": "string",
+                  "enum": ["solid", "dashed", "dotted", "double", "groove", "ridge", "inset", "outset"]
+                }
+              }
+            }
+          }
+        },
+        "components": {
+          "type": "object",
+          "patternProperties": {
+            "^[a-zA-Z][a-zA-Z0-9]*$": {
+              "type": "object",
+              "required": ["inherit"],
+              "properties": {
+                "inherit": {
+                  "type": "boolean",
+                  "description": "Whether component inherits global theme properties"
+                },
+                "overrides": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "description": "Component-specific property overrides"
+                }
+              },
+              "additionalProperties": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "color": {
+      "type": "string",
+      "oneOf": [
+        {
+          "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$",
+          "description": "Hex color"
+        },
+        {
+          "pattern": "^rgb\\(\\s*([01]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])\\s*,\\s*([01]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])\\s*,\\s*([01]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])\\s*\\)$",
+          "description": "RGB color"
+        },
+        {
+          "pattern": "^rgba\\(\\s*([01]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])\\s*,\\s*([01]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])\\s*,\\s*([01]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])\\s*,\\s*([01]?\\.?[0-9]*)\\s*\\)$",
+          "description": "RGBA color"
+        },
+        {
+          "pattern": "^hsl\\(\\s*([0-9]{1,3})\\s*,\\s*([0-9]{1,3})%\\s*,\\s*([0-9]{1,3})%\\s*\\)$",
+          "description": "HSL color"
+        },
+        {
+          "pattern": "^hsla\\(\\s*([0-9]{1,3})\\s*,\\s*([0-9]{1,3})%\\s*,\\s*([0-9]{1,3})%\\s*,\\s*([01]?\\.?[0-9]*)\\s*\\)$",
+          "description": "HSLA color"
+        },
+        {
+          "enum": ["transparent", "currentColor", "inherit", "initial", "unset"],
+          "description": "CSS color keywords"
+        }
+      ]
+    },
+    "cssLength": {
+      "type": "string",
+      "pattern": "^(\\d+(\\.\\d+)?(px|em|rem|%|vh|vw|vmin|vmax|ch|ex)|0|auto|inherit|initial|unset)$",
+      "description": "CSS length value"
+    }
+  }
+}

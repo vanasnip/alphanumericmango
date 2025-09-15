@@ -1,0 +1,417 @@
+/* Voice UI Visual Feedback States */
+/* Comprehensive animation system for voice interaction states */
+
+/* Voice indicator base styles */
+.voice-indicator {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--voice-size, 50px);
+  height: var(--voice-size, 50px);
+  border: var(--voice-border-width, 2px) solid var(--voice-border, var(--color-border));
+  border-radius: var(--voice-border-radius, 50%);
+  background: var(--voice-bg, transparent);
+  color: var(--voice-color, var(--color-text-muted));
+  font-size: var(--voice-font-size, 1.2rem);
+  cursor: pointer;
+  transition: var(--voice-transition, all 0.3s ease);
+  user-select: none;
+  outline: none;
+}
+
+/* Focus states for accessibility */
+.voice-indicator:focus-visible {
+  outline: 2px solid var(--color-outline);
+  outline-offset: 2px;
+}
+
+/* State-specific styling */
+
+/* 1. IDLE STATE - Subtle breathing animation */
+.voice-indicator.idle {
+  --voice-color: var(--color-text-muted);
+  --voice-border: var(--color-border);
+  --voice-bg: transparent;
+  animation: voice-idle-pulse 3s ease-in-out infinite;
+}
+
+@keyframes voice-idle-pulse {
+  0%, 100% { 
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 1;
+    transform: scale(1.02);
+  }
+}
+
+/* 2. LISTENING STATE - Active glow with ripple effect */
+.voice-indicator.listening {
+  --voice-color: var(--color-accent);
+  --voice-border: var(--color-accent);
+  --voice-bg: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  animation: voice-listening-glow 1.5s ease-in-out infinite;
+  box-shadow: 
+    0 0 20px color-mix(in srgb, var(--color-accent) 30%, transparent),
+    inset 0 0 20px color-mix(in srgb, var(--color-accent) 5%, transparent);
+}
+
+@keyframes voice-listening-glow {
+  0%, 100% {
+    box-shadow: 
+      0 0 10px color-mix(in srgb, var(--color-accent) 20%, transparent),
+      inset 0 0 10px color-mix(in srgb, var(--color-accent) 5%, transparent);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 
+      0 0 30px color-mix(in srgb, var(--color-accent) 40%, transparent),
+      inset 0 0 20px color-mix(in srgb, var(--color-accent) 10%, transparent);
+    transform: scale(1.05);
+  }
+}
+
+/* Listening ripple effect */
+.voice-indicator.listening::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  right: -10px;
+  bottom: -10px;
+  border: 2px solid var(--color-accent);
+  border-radius: 50%;
+  opacity: 0;
+  animation: voice-listening-ripple 2s ease-out infinite;
+}
+
+@keyframes voice-listening-ripple {
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.2);
+    opacity: 0;
+  }
+}
+
+/* 3. PROCESSING STATE - Spinning with gradient border */
+.voice-indicator.processing {
+  --voice-color: var(--color-warning);
+  --voice-border: transparent;
+  --voice-bg: color-mix(in srgb, var(--color-warning) 10%, transparent);
+  animation: voice-processing-spin 1s linear infinite;
+  background-image: conic-gradient(
+    from 0deg,
+    var(--color-warning),
+    var(--color-primary),
+    var(--color-warning)
+  );
+  background-size: 100% 100%;
+  background-clip: padding-box;
+}
+
+/* Inner circle for processing state */
+.voice-indicator.processing::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  right: 2px;
+  bottom: 2px;
+  background: var(--color-surface);
+  border-radius: 50%;
+  z-index: -1;
+}
+
+@keyframes voice-processing-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Processing dots indicator */
+.voice-indicator.processing .processing-dots {
+  display: flex;
+  gap: 3px;
+}
+
+.voice-indicator.processing .processing-dots::before,
+.voice-indicator.processing .processing-dots::after {
+  content: '';
+  width: 4px;
+  height: 4px;
+  background: currentColor;
+  border-radius: 50%;
+  animation: voice-processing-dots 1.5s ease-in-out infinite;
+}
+
+.voice-indicator.processing .processing-dots::after {
+  animation-delay: 0.5s;
+}
+
+@keyframes voice-processing-dots {
+  0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+  40% { transform: scale(1.2); opacity: 1; }
+}
+
+/* 4. SPEAKING STATE - Waveform animation */
+.voice-indicator.speaking {
+  --voice-color: var(--color-primary);
+  --voice-border: var(--color-primary);
+  --voice-bg: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  animation: voice-speaking-wave 0.8s ease-in-out infinite;
+}
+
+@keyframes voice-speaking-wave {
+  0%, 100% { 
+    transform: scale(1);
+    border-radius: 50%;
+  }
+  25% { 
+    transform: scale(1.1);
+    border-radius: 45%;
+  }
+  50% { 
+    transform: scale(1);
+    border-radius: 50%;
+  }
+  75% { 
+    transform: scale(1.1);
+    border-radius: 55%;
+  }
+}
+
+/* Speaking waveform bars */
+.voice-indicator.speaking .waveform {
+  display: flex;
+  align-items: end;
+  gap: 2px;
+  height: 20px;
+}
+
+.voice-indicator.speaking .waveform-bar {
+  width: 3px;
+  background: currentColor;
+  border-radius: 1px;
+  animation: voice-speaking-bars 0.6s ease-in-out infinite;
+}
+
+.voice-indicator.speaking .waveform-bar:nth-child(1) { animation-delay: 0s; }
+.voice-indicator.speaking .waveform-bar:nth-child(2) { animation-delay: 0.1s; }
+.voice-indicator.speaking .waveform-bar:nth-child(3) { animation-delay: 0.2s; }
+.voice-indicator.speaking .waveform-bar:nth-child(4) { animation-delay: 0.1s; }
+.voice-indicator.speaking .waveform-bar:nth-child(5) { animation-delay: 0s; }
+
+@keyframes voice-speaking-bars {
+  0%, 100% { height: 8px; }
+  50% { height: 20px; }
+}
+
+/* 5. ERROR STATE - Shake with red pulse */
+.voice-indicator.error {
+  --voice-color: var(--color-error);
+  --voice-border: var(--color-error);
+  --voice-bg: color-mix(in srgb, var(--color-error) 15%, transparent);
+  animation: voice-error-shake 0.5s ease-in-out, voice-error-pulse 1s ease-in-out 0.5s;
+}
+
+@keyframes voice-error-shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-3px); }
+  20%, 40%, 60%, 80% { transform: translateX(3px); }
+}
+
+@keyframes voice-error-pulse {
+  0%, 100% { 
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-error) 70%, transparent);
+  }
+  50% { 
+    box-shadow: 0 0 0 10px color-mix(in srgb, var(--color-error) 0%, transparent);
+  }
+}
+
+/* Voice status indicators */
+.voice-status {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-2) var(--spacing-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  font-size: var(--font-size-sm);
+  transition: all 0.3s ease;
+}
+
+.voice-status.listening {
+  background: color-mix(in srgb, var(--color-accent) 5%, var(--color-surface));
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.voice-status.processing {
+  background: color-mix(in srgb, var(--color-warning) 5%, var(--color-surface));
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.voice-status.speaking {
+  background: color-mix(in srgb, var(--color-primary) 5%, var(--color-surface));
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.voice-status.error {
+  background: color-mix(in srgb, var(--color-error) 5%, var(--color-surface));
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+/* Confidence meter */
+.confidence-meter {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin-top: var(--spacing-2);
+}
+
+.confidence-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--color-surface-secondary);
+  border-radius: var(--border-radius-sm);
+  overflow: hidden;
+}
+
+.confidence-fill {
+  height: 100%;
+  border-radius: var(--border-radius-sm);
+  transition: width 0.3s ease, background-color 0.3s ease;
+  background: linear-gradient(
+    90deg,
+    var(--color-error) 0%,
+    var(--color-warning) 50%,
+    var(--color-success) 100%
+  );
+}
+
+/* Voice command feedback */
+.voice-command-feedback {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: var(--spacing-2);
+  padding: var(--spacing-1) var(--spacing-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  z-index: 10;
+}
+
+.voice-indicator:hover .voice-command-feedback,
+.voice-indicator:focus .voice-command-feedback {
+  opacity: 1;
+  transform: translateX(-50%) translateY(2px);
+}
+
+/* Microphone permission request */
+.mic-permission-request {
+  position: relative;
+  animation: voice-permission-pulse 2s ease-in-out infinite;
+}
+
+@keyframes voice-permission-pulse {
+  0%, 100% { 
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-warning) 40%, transparent);
+  }
+  50% { 
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-warning) 0%, transparent);
+  }
+}
+
+/* High contrast mode adjustments */
+@media (prefers-contrast: high) {
+  .voice-indicator {
+    border-width: 3px;
+  }
+  
+  .voice-indicator.listening {
+    box-shadow: none;
+    border-color: var(--color-accent);
+    background: var(--color-accent);
+    color: var(--color-background);
+  }
+  
+  .voice-indicator.processing {
+    background: var(--color-warning);
+    color: var(--color-background);
+  }
+  
+  .voice-indicator.speaking {
+    background: var(--color-primary);
+    color: var(--color-background);
+  }
+  
+  .voice-indicator.error {
+    background: var(--color-error);
+    color: var(--color-background);
+  }
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .voice-indicator,
+  .voice-indicator::before,
+  .voice-indicator::after,
+  .confidence-fill,
+  .voice-command-feedback {
+    animation: none !important;
+    transition: none !important;
+  }
+  
+  .voice-indicator.idle {
+    opacity: 0.8;
+  }
+  
+  .voice-indicator.listening {
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  }
+  
+  .voice-indicator.processing {
+    border-color: var(--color-warning);
+    background: color-mix(in srgb, var(--color-warning) 20%, transparent);
+  }
+  
+  .voice-indicator.speaking {
+    border-color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 20%, transparent);
+  }
+  
+  .voice-indicator.error {
+    border-color: var(--color-error);
+    background: color-mix(in srgb, var(--color-error) 20%, transparent);
+  }
+}
+
+/* Screen reader only content */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

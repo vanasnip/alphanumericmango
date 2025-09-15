@@ -10,7 +10,7 @@ import { spawn } from 'child_process';
 // Configuration
 const CONFIG = {
   // Svelte terminal is the only option now
-  port: 5173,  // SvelteKit default port
+  port: 5174,  // SvelteKit dev server (port 5173 was in use)
   
   performance: {
     // VS Code-inspired optimizations

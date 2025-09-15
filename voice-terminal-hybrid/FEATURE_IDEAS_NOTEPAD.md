@@ -124,6 +124,20 @@
 
 ---
 
+## Command Discovery & Context-Aware Suggestions
+- **"List Commands" Feature**: A command to show all available commands in current context
+- **Command Search/Filter**: After listing, ability to search through available commands
+- **Context-Specific Key Commands Display**: Show relevant commands for terminal vs chat vs project contexts
+- **Selective Suggestion Scenarios** (only show in specific situations):
+  - When user is idle/seems stuck
+  - First time entering a new context
+  - After errors (suggest recovery commands)
+  - During voice input (context-aware completions)
+  - When user explicitly asks for help
+- **Smart Context Detection**: Different command palettes for different areas
+- **Non-intrusive Design**: Commands only appear when useful, not constantly visible
+- **Command Preview**: See what a command does before executing
+
 ## Quick Ideas Buffer
 *Drop random thoughts here for later organization:*
 

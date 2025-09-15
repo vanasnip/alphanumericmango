@@ -1,6 +1,5 @@
 import { writable, derived } from 'svelte/store';
 import { browser } from '$app/environment';
-import { fileWatcher } from '../fileWatcher.js';
 import { updateThemeCSS } from '../cssVariableGenerator.js';
 import { validateTheme, validatePartialTheme, formatValidationErrors } from '../themeValidator.js';
 import { 
@@ -77,112 +76,167 @@ const DEFAULT_THEME = {
 
 // Create the main theme store
 function createThemeStore() {
-  const { subscribe, set, update } = writable(DEFAULT_THEME);
-  let fileWatcherCleanup = null;
+  const { subscribe, set: _set, update: _update } = writable(DEFAULT_THEME);
+  let storageWatcherCleanup = null;
+
+  // Internal save function
+  const saveToLocalStorageInternal = (theme) => {
+    if (!browser) return false;
+    
+    try {
+      const themeJson = JSON.stringify(theme);
+      localStorage.setItem('voice-terminal-theme', themeJson);
+      return true;
+    } catch (error) {
+      console.warn('Failed to save theme to localStorage:', error);
+      themeError.set(`Failed to save theme: ${error.message}`);
+      return false;
+    }
+  };
+
+  // Override set to ensure persistence
+  const set = (theme) => {
+    _set(theme);
+    updateThemeCSS(theme);
+    saveToLocalStorageInternal(theme);
+  };
+
+  // Override update to ensure persistence  
+  const update = (updater) => {
+    let newTheme;
+    _update(current => {
+      newTheme = updater(current);
+      return newTheme;
+    });
+    if (newTheme) {
+      updateThemeCSS(newTheme);
+      saveToLocalStorageInternal(newTheme);
+    }
+    return newTheme;
+  };
 
   return {
     subscribe,
     set,
     update,
     
-    // Load theme from settings.json
+    // Load theme from localStorage
     loadSettings: async () => {
       if (!browser) return;
       
       try {
-        const response = await fetch('/settings.json');
-        if (!response.ok) {
-          throw new Error(`Failed to load settings: ${response.status}`);
-        }
-        
-        const settings = await response.json();
-        if (settings.theme) {
+        // Load from localStorage instead of making API calls
+        const storedTheme = loadFromLocalStorage();
+        if (storedTheme && JSON.stringify(storedTheme) !== JSON.stringify(DEFAULT_THEME)) {
           // Validate theme before applying
-          const validation = validateTheme(settings.theme);
+          const validation = validateTheme(storedTheme);
           if (!validation.isValid) {
             const errorMessage = `Theme validation failed:\n${formatValidationErrors(validation.errors)}`;
             themeError.set(errorMessage);
             console.warn('Theme validation errors:', validation.errors);
+            // Reset to default on validation failure
+            localStorage.removeItem('voice-terminal-theme');
+            set(DEFAULT_THEME);
+            updateThemeCSS(DEFAULT_THEME);
             return;
           }
           
-          update(current => {
-            const newTheme = mergeTheme(current, settings.theme);
-            updateThemeCSS(newTheme);
-            return newTheme;
-          });
-          themeError.set(null);
-        }
-      } catch (error) {
-        console.warn('Failed to load theme settings:', error);
-        themeError.set(`Failed to load theme settings: ${error.message}`);
-        // Fall back to localStorage
-        const storedTheme = loadFromLocalStorage();
-        if (storedTheme !== DEFAULT_THEME) {
           set(storedTheme);
+          updateThemeCSS(storedTheme);
+          themeError.set(null);
+        } else {
+          // Use default theme and apply CSS
+          set(DEFAULT_THEME);
+          updateThemeCSS(DEFAULT_THEME);
         }
-      }
-    },
-
-    // Start watching settings.json for changes
-    startWatching: () => {
-      if (!browser || fileWatcherCleanup) return;
-      
-      fileWatcherCleanup = fileWatcher.watch('/settings.json', () => {
-        themeStore.loadSettings();
-      }, 100); // 100ms debounce
-    },
-
-    // Stop watching settings.json
-    stopWatching: () => {
-      if (fileWatcherCleanup) {
-        fileWatcherCleanup();
-        fileWatcherCleanup = null;
-      }
-    },
-
-    // Save theme to localStorage (fallback)
-    saveToLocalStorage: (theme) => {
-      if (!browser) return;
-      try {
-        localStorage.setItem('voice-terminal-theme', JSON.stringify(theme));
       } catch (error) {
-        console.warn('Failed to save theme to localStorage:', error);
+        console.warn('Failed to load theme settings from localStorage:', error);
+        themeError.set(`Failed to load theme settings: ${error.message}`);
+        // Fall back to default theme
+        set(DEFAULT_THEME);
+        updateThemeCSS(DEFAULT_THEME);
       }
+    },
+
+    // Start watching localStorage for changes (from other tabs)
+    startWatching: () => {
+      if (!browser || storageWatcherCleanup) return;
+      
+      // Listen for storage events from other tabs
+      const handleStorageChange = (e) => {
+        if (e.key === 'voice-terminal-theme' && e.newValue) {
+          try {
+            const newTheme = JSON.parse(e.newValue);
+            const validation = validateTheme(newTheme);
+            if (validation.isValid) {
+              set(newTheme);
+              updateThemeCSS(newTheme);
+              themeError.set(null);
+            }
+          } catch (error) {
+            console.warn('Failed to sync theme from storage event:', error);
+          }
+        }
+      };
+      
+      window.addEventListener('storage', handleStorageChange);
+      storageWatcherCleanup = () => {
+        window.removeEventListener('storage', handleStorageChange);
+      };
+    },
+
+    // Stop watching localStorage
+    stopWatching: () => {
+      if (storageWatcherCleanup) {
+        storageWatcherCleanup();
+        storageWatcherCleanup = null;
+      }
+    },
+
+    // Save theme to localStorage
+    saveToLocalStorage: (theme) => {
+      return saveToLocalStorageInternal(theme);
     },
 
     // Update theme mode
     setMode: (mode) => {
       if (!THEME_MODES.includes(mode)) {
         console.warn(`Invalid theme mode: ${mode}`);
-        return;
+        return false;
       }
       
+      let success = false;
       update(theme => {
         const newTheme = { ...theme, mode };
         updateThemeCSS(newTheme);
-        themeStore.saveToLocalStorage(newTheme);
+        success = themeStore.saveToLocalStorage(newTheme);
         return newTheme;
       });
+      
+      return success;
     },
 
     // Update theme preset
     setPreset: (preset) => {
       if (!THEME_PRESETS.includes(preset)) {
         console.warn(`Invalid theme preset: ${preset}`);
-        return;
+        return false;
       }
       
+      let success = false;
       update(theme => {
         const newTheme = { ...theme, preset };
         updateThemeCSS(newTheme);
-        themeStore.saveToLocalStorage(newTheme);
+        success = themeStore.saveToLocalStorage(newTheme);
         return newTheme;
       });
+      
+      return success;
     },
 
     // Update specific color
     setColor: (colorKey, value) => {
+      let success = false;
       update(theme => {
         const newTheme = {
           ...theme,
@@ -195,13 +249,16 @@ function createThemeStore() {
           }
         };
         updateThemeCSS(newTheme);
-        themeStore.saveToLocalStorage(newTheme);
+        success = themeStore.saveToLocalStorage(newTheme);
         return newTheme;
       });
+      
+      return success;
     },
 
     // Update component theme
     setComponentTheme: (component, config) => {
+      let success = false;
       update(theme => {
         const newTheme = {
           ...theme,
@@ -214,9 +271,11 @@ function createThemeStore() {
           }
         };
         updateThemeCSS(newTheme);
-        themeStore.saveToLocalStorage(newTheme);
+        success = themeStore.saveToLocalStorage(newTheme);
         return newTheme;
       });
+      
+      return success;
     },
 
     // Reset to default theme
@@ -325,10 +384,17 @@ function loadFromLocalStorage() {
     const stored = localStorage.getItem('voice-terminal-theme');
     if (stored) {
       const parsedTheme = JSON.parse(stored);
+      // Return the merged theme to ensure all default properties are present
       return mergeTheme(DEFAULT_THEME, parsedTheme);
     }
   } catch (error) {
     console.warn('Failed to load theme from localStorage:', error);
+    // Clear corrupted data
+    try {
+      localStorage.removeItem('voice-terminal-theme');
+    } catch (e) {
+      // Ignore cleanup errors
+    }
   }
   
   return DEFAULT_THEME;
@@ -402,5 +468,9 @@ export const voiceStates = derived(themeStore, $theme => ({
 // Current colors derived store for easy access
 export const currentColors = derived(themeStore, $theme => $theme.global.colors);
 
-// Note: Auto-loading is now handled by components that use the theme store
-// This prevents SSR issues with async initialization
+// Auto-load theme on store creation (but only once)
+if (browser) {
+  // Initialize theme immediately
+  themeStore.loadSettings();
+  themeStore.startWatching();
+}

@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Theme Performance Analysis</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .test-section {
+            background: #2a2a2a;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #444;
+        }
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .metric {
+            background: #333;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        .metric-label {
+            font-size: 14px;
+            color: #aaa;
+            margin-top: 5px;
+        }
+        .status {
+            padding: 5px 10px;
+            border-radius: 4px;
+            margin-left: 10px;
+            font-size: 12px;
+        }
+        .status.excellent { background: #4CAF50; color: white; }
+        .status.good { background: #2196F3; color: white; }
+        .status.warning { background: #FF9800; color: white; }
+        .status.error { background: #f44336; color: white; }
+        .log {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+            margin: 15px 0;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #444;
+        }
+        button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #1976D2;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .test-elements {
+            display: none;
+        }
+        .theme-test-component {
+            padding: 20px;
+            margin: 10px;
+            border: 2px solid var(--theme-primary, #3B82F6);
+            background: var(--theme-surface, #374151);
+            color: var(--theme-text, #F9FAFB);
+            border-radius: var(--theme-borders-radius-md, 0.375rem);
+            transition: all 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Theme Performance Analysis</h1>
+        <p>Real-world performance testing of the theme persistence system</p>
+
+        <div class="test-section">
+            <h2>Performance Overview</h2>
+            <div class="metrics" id="overview-metrics">
+                <!-- Metrics will be populated by JavaScript -->
+            </div>
+            <button onclick="runAllTests()" id="run-tests">Run Performance Tests</button>
+            <button onclick="clearResults()" id="clear-results">Clear Results</button>
+        </div>
+
+        <div class="test-section">
+            <h3>1. Theme Switch Performance <span id="theme-switch-status"></span></h3>
+            <p>Target: &lt; 100ms for theme switching</p>
+            <div class="metrics" id="theme-switch-metrics"></div>
+            <button onclick="testThemeSwitching()">Test Theme Switching</button>
+        </div>
+
+        <div class="test-section">
+            <h3>2. localStorage Performance <span id="storage-status"></span></h3>
+            <p>Measuring read/write performance for theme data</p>
+            <div class="metrics" id="storage-metrics"></div>
+            <button onclick="testStoragePerformance()">Test Storage Performance</button>
+        </div>
+
+        <div class="test-section">
+            <h3>3. CSS Variable Generation <span id="css-status"></span></h3>
+            <p>Performance of CSS variable generation and injection</p>
+            <div class="metrics" id="css-metrics"></div>
+            <button onclick="testCSSGeneration()">Test CSS Generation</button>
+        </div>
+
+        <div class="test-section">
+            <h3>4. Cross-Tab Sync Performance <span id="sync-status"></span></h3>
+            <p>Storage event handling and theme synchronization</p>
+            <div class="metrics" id="sync-metrics"></div>
+            <button onclick="testCrossTabSync()">Test Cross-Tab Sync</button>
+        </div>
+
+        <div class="test-section">
+            <h3>5. Memory Usage Analysis <span id="memory-status"></span></h3>
+            <p>Memory consumption during theme operations</p>
+            <div class="metrics" id="memory-metrics"></div>
+            <button onclick="testMemoryUsage()">Test Memory Usage</button>
+        </div>
+
+        <div class="test-section">
+            <h3>Performance Log</h3>
+            <div class="log" id="performance-log"></div>
+        </div>
+
+        <!-- Test Elements (hidden) -->
+        <div class="test-elements">
+            <div class="theme-test-component" id="test-component-1">Test Component 1</div>
+            <div class="theme-test-component" id="test-component-2">Test Component 2</div>
+            <div class="theme-test-component" id="test-component-3">Test Component 3</div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Theme system implementation (simplified version for testing)
+        const DEFAULT_THEME = {
+            mode: 'dark',
+            preset: 'default',
+            global: {
+                colors: {
+                    primary: '#3B82F6',
+                    secondary: '#8B5CF6',
+                    success: '#10B981',
+                    warning: '#F59E0B',
+                    error: '#EF4444',
+                    background: '#1F2937',
+                    surface: '#374151',
+                    text: '#F9FAFB'
+                },
+                typography: {
+                    fontFamily: 'Inter, system-ui',
+                    fontSize: { base: '16px', scale: 1.25 }
+                },
+                spacing: { unit: '0.25rem', scale: [1, 2, 3, 4, 6, 8, 12, 16, 24, 32] },
+                borders: {
+                    radius: { none: '0', sm: '0.125rem', md: '0.375rem', lg: '0.5rem', full: '9999px' },
+                    width: '1px', style: 'solid'
+                }
+            },
+            components: {
+                terminal: {
+                    inherit: false,
+                    background: '#000000',
+                    fontFamily: 'JetBrains Mono, monospace',
+                    fontSize: '14px',
+                    lineHeight: 1.5,
+                    padding: '1rem'
+                }
+            }
+        };
+
+        const OCEAN_THEME = {
+            ...DEFAULT_THEME,
+            preset: 'ocean',
+            global: {
+                ...DEFAULT_THEME.global,
+                colors: {
+                    ...DEFAULT_THEME.global.colors,
+                    primary: '#0EA5E9',
+                    secondary: '#06B6D4',
+                    background: '#0F172A',
+                    surface: '#1E293B',
+                    text: '#F1F5F9'
+                }
+            }
+        };
+
+        const FOREST_THEME = {
+            ...DEFAULT_THEME,
+            preset: 'forest',
+            global: {
+                ...DEFAULT_THEME.global,
+                colors: {
+                    ...DEFAULT_THEME.global.colors,
+                    primary: '#22C55E',
+                    secondary: '#84CC16',
+                    background: '#052E16',
+                    surface: '#14532D',
+                    text: '#F0FDF4'
+                }
+            }
+        };
+
+        let currentTheme = DEFAULT_THEME;
+        let testResults = {};
+
+        // Performance utilities
+        function measurePerformance(name, fn, iterations = 100) {
+            const measurements = [];
+            
+            for (let i = 0; i < iterations; i++) {
+                const start = performance.now();
+                fn();
+                const end = performance.now();
+                measurements.push(end - start);
+            }
+
+            const average = measurements.reduce((a, b) => a + b, 0) / measurements.length;
+            const min = Math.min(...measurements);
+            const max = Math.max(...measurements);
+            const median = measurements.sort((a, b) => a - b)[Math.floor(measurements.length / 2)];
+
+            return { name, average, min, max, median, measurements };
+        }
+
+        async function measureAsyncPerformance(name, fn, iterations = 50) {
+            const measurements = [];
+            
+            for (let i = 0; i < iterations; i++) {
+                const start = performance.now();
+                await fn();
+                const end = performance.now();
+                measurements.push(end - start);
+            }
+
+            const average = measurements.reduce((a, b) => a + b, 0) / measurements.length;
+            const min = Math.min(...measurements);
+            const max = Math.max(...measurements);
+            const median = measurements.sort((a, b) => a - b)[Math.floor(measurements.length / 2)];
+
+            return { name, average, min, max, median, measurements };
+        }
+
+        // CSS Variable generation
+        function formatCSSValue(value) {
+            if (typeof value === 'string') return value;
+            if (typeof value === 'number') return value.toString();
+            if (Array.isArray(value)) return value.join(', ');
+            if (typeof value === 'object' && value !== null) return JSON.stringify(value);
+            return String(value);
+        }
+
+        function objectToCSSVariables(obj, prefix = '--theme') {
+            const variables = [];
+            
+            function traverse(current, path) {
+                for (const [key, value] of Object.entries(current)) {
+                    const variableName = `${prefix}-${path}${key}`.replace(/([A-Z])/g, '-$1').toLowerCase();
+                    
+                    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                        traverse(value, `${path}${key}-`);
+                    } else {
+                        variables.push(`  ${variableName}: ${formatCSSValue(value)};`);
+                    }
+                }
+            }
+            
+            traverse(obj, '');
+            return variables.join('\n');
+        }
+
+        function generateThemeCSS(theme) {
+            const globalVars = objectToCSSVariables(theme.global, '--theme');
+            const modeVar = `  --theme-mode: ${theme.mode};`;
+            const presetVar = `  --theme-preset: ${theme.preset};`;
+            
+            return `:root {\n${modeVar}\n${presetVar}\n${globalVars}\n}`;
+        }
+
+        function applyThemeCSS(theme) {
+            const css = generateThemeCSS(theme);
+            
+            let style = document.getElementById('theme-variables');
+            if (!style) {
+                style = document.createElement('style');
+                style.id = 'theme-variables';
+                document.head.appendChild(style);
+            }
+            
+            style.textContent = css;
+        }
+
+        // Test implementations
+        window.testThemeSwitching = async function() {
+            log('Starting theme switching performance test...');
+            
+            const themes = [DEFAULT_THEME, OCEAN_THEME, FOREST_THEME];
+            const switchResults = [];
+
+            for (let i = 0; i < themes.length; i++) {
+                const theme = themes[i];
+                const result = measurePerformance(`Switch to ${theme.preset}`, () => {
+                    applyThemeCSS(theme);
+                    localStorage.setItem('voice-terminal-theme', JSON.stringify(theme));
+                }, 50);
+                
+                switchResults.push(result);
+                await new Promise(resolve => setTimeout(resolve, 100)); // Brief pause
+            }
+
+            // Test rapid switching
+            const rapidResult = measurePerformance('Rapid Theme Switching', () => {
+                const randomTheme = themes[Math.floor(Math.random() * themes.length)];
+                applyThemeCSS(randomTheme);
+            }, 200);
+
+            switchResults.push(rapidResult);
+
+            const avgSwitchTime = switchResults.reduce((sum, r) => sum + r.average, 0) / switchResults.length;
+            
+            testResults.themeSwitching = {
+                results: switchResults,
+                averageTime: avgSwitchTime,
+                target: 100,
+                passed: avgSwitchTime < 100
+            };
+
+            updateMetrics('theme-switch-metrics', switchResults);
+            updateStatus('theme-switch-status', avgSwitchTime < 100 ? 'excellent' : avgSwitchTime < 200 ? 'good' : 'error');
+            
+            log(`Theme switching test completed. Average: ${avgSwitchTime.toFixed(2)}ms`);
+        };
+
+        window.testStoragePerformance = function() {
+            log('Starting localStorage performance test...');
+            
+            const writeResult = measurePerformance('localStorage Write', () => {
+                localStorage.setItem('voice-terminal-theme', JSON.stringify(currentTheme));
+            }, 1000);
+
+            const readResult = measurePerformance('localStorage Read', () => {
+                const stored = localStorage.getItem('voice-terminal-theme');
+                if (stored) JSON.parse(stored);
+            }, 1000);
+
+            // Test with large theme
+            const largeTheme = {
+                ...DEFAULT_THEME,
+                global: {
+                    ...DEFAULT_THEME.global,
+                    colors: {
+                        ...DEFAULT_THEME.global.colors,
+                        ...Object.fromEntries(
+                            Array.from({ length: 1000 }, (_, i) => [`color${i}`, `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`])
+                        )
+                    }
+                }
+            };
+
+            const largeWriteResult = measurePerformance('Large Theme Write', () => {
+                localStorage.setItem('voice-terminal-theme-large', JSON.stringify(largeTheme));
+            }, 100);
+
+            const results = [writeResult, readResult, largeWriteResult];
+            
+            testResults.storage = {
+                results,
+                passed: results.every(r => r.average < 10)
+            };
+
+            updateMetrics('storage-metrics', results);
+            updateStatus('storage-status', testResults.storage.passed ? 'excellent' : 'warning');
+            
+            log(`Storage performance test completed.`);
+        };
+
+        window.testCSSGeneration = function() {
+            log('Starting CSS generation performance test...');
+            
+            const generateResult = measurePerformance('CSS Generation', () => {
+                generateThemeCSS(currentTheme);
+            }, 1000);
+
+            const applyResult = measurePerformance('CSS Application', () => {
+                applyThemeCSS(currentTheme);
+            }, 500);
+
+            // Test with complex theme
+            const complexTheme = {
+                ...DEFAULT_THEME,
+                components: {
+                    ...DEFAULT_THEME.components,
+                    ...Object.fromEntries(
+                        Array.from({ length: 50 }, (_, i) => [`component${i}`, {
+                            inherit: true,
+                            overrides: {
+                                color: `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`,
+                                background: `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`
+                            }
+                        }])
+                    )
+                }
+            };
+
+            const complexResult = measurePerformance('Complex CSS Generation', () => {
+                generateThemeCSS(complexTheme);
+            }, 200);
+
+            const results = [generateResult, applyResult, complexResult];
+            
+            testResults.css = {
+                results,
+                passed: results.every(r => r.average < 50)
+            };
+
+            updateMetrics('css-metrics', results);
+            updateStatus('css-status', testResults.css.passed ? 'excellent' : 'good');
+            
+            log(`CSS generation test completed.`);
+        };
+
+        window.testCrossTabSync = function() {
+            log('Starting cross-tab sync performance test...');
+            
+            const syncResult = measurePerformance('Storage Event Processing', () => {
+                const event = new StorageEvent('storage', {
+                    key: 'voice-terminal-theme',
+                    newValue: JSON.stringify(OCEAN_THEME),
+                    oldValue: JSON.stringify(DEFAULT_THEME)
+                });
+                
+                // Simulate processing
+                if (event.key === 'voice-terminal-theme' && event.newValue) {
+                    const newTheme = JSON.parse(event.newValue);
+                    applyThemeCSS(newTheme);
+                }
+            }, 500);
+
+            const results = [syncResult];
+            
+            testResults.sync = {
+                results,
+                passed: syncResult.average < 20
+            };
+
+            updateMetrics('sync-metrics', results);
+            updateStatus('sync-status', testResults.sync.passed ? 'excellent' : 'good');
+            
+            log(`Cross-tab sync test completed.`);
+        };
+
+        window.testMemoryUsage = function() {
+            log('Starting memory usage test...');
+            
+            if (!performance.memory) {
+                log('Memory API not available in this browser');
+                updateStatus('memory-status', 'warning');
+                return;
+            }
+
+            const initialMemory = performance.memory.usedJSHeapSize;
+            
+            // Perform memory-intensive operations
+            const themes = [];
+            for (let i = 0; i < 100; i++) {
+                const theme = JSON.parse(JSON.stringify(DEFAULT_THEME));
+                theme.global.colors.primary = `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`;
+                themes.push(theme);
+                
+                generateThemeCSS(theme);
+                applyThemeCSS(theme);
+            }
+
+            const finalMemory = performance.memory.usedJSHeapSize;
+            const memoryIncrease = finalMemory - initialMemory;
+            const percentIncrease = (memoryIncrease / initialMemory) * 100;
+
+            const results = [{
+                name: 'Memory Usage',
+                average: memoryIncrease / 1024 / 1024, // MB
+                min: 0,
+                max: memoryIncrease / 1024 / 1024,
+                median: memoryIncrease / 1024 / 1024
+            }];
+            
+            testResults.memory = {
+                results,
+                memoryIncrease: memoryIncrease / 1024 / 1024,
+                percentIncrease,
+                passed: percentIncrease < 20
+            };
+
+            updateMetrics('memory-metrics', results);
+            updateStatus('memory-status', testResults.memory.passed ? 'excellent' : 'warning');
+            
+            log(`Memory test completed. Increase: ${(memoryIncrease / 1024 / 1024).toFixed(2)}MB (${percentIncrease.toFixed(1)}%)`);
+        };
+
+        window.runAllTests = async function() {
+            document.getElementById('run-tests').disabled = true;
+            log('=== Starting Complete Performance Analysis ===');
+            
+            await testThemeSwitching();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            testStoragePerformance();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            testCSSGeneration();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            testCrossTabSync();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            testMemoryUsage();
+            
+            updateOverviewMetrics();
+            generateRecommendations();
+            
+            document.getElementById('run-tests').disabled = false;
+            log('=== Performance Analysis Complete ===');
+        };
+
+        window.clearResults = function() {
+            testResults = {};
+            document.getElementById('performance-log').innerHTML = '';
+            document.querySelectorAll('.metrics').forEach(el => el.innerHTML = '');
+            document.querySelectorAll('.status').forEach(el => el.remove());
+            log('Results cleared');
+        };
+
+        function updateMetrics(containerId, results) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            results.forEach(result => {
+                const metric = document.createElement('div');
+                metric.className = 'metric';
+                metric.innerHTML = `
+                    <div class="metric-value">${result.average.toFixed(2)}ms</div>
+                    <div class="metric-label">${result.name}</div>
+                `;
+                container.appendChild(metric);
+            });
+        }
+
+        function updateStatus(statusId, type) {
+            const existing = document.querySelector(`#${statusId.replace('-status', '')} .status`);
+            if (existing) existing.remove();
+            
+            const status = document.createElement('span');
+            status.className = `status ${type}`;
+            status.textContent = type.toUpperCase();
+            
+            document.getElementById(statusId).appendChild(status);
+        }
+
+        function updateOverviewMetrics() {
+            const container = document.getElementById('overview-metrics');
+            container.innerHTML = '';
+
+            if (testResults.themeSwitching) {
+                const metric = document.createElement('div');
+                metric.className = 'metric';
+                metric.innerHTML = `
+                    <div class="metric-value">${testResults.themeSwitching.averageTime.toFixed(2)}ms</div>
+                    <div class="metric-label">Avg Theme Switch</div>
+                `;
+                container.appendChild(metric);
+            }
+
+            const totalTests = Object.keys(testResults).length;
+            const passedTests = Object.values(testResults).filter(r => r.passed).length;
+            
+            const overallMetric = document.createElement('div');
+            overallMetric.className = 'metric';
+            overallMetric.innerHTML = `
+                <div class="metric-value">${passedTests}/${totalTests}</div>
+                <div class="metric-label">Tests Passed</div>
+            `;
+            container.appendChild(overallMetric);
+        }
+
+        function generateRecommendations() {
+            log('\n=== PERFORMANCE RECOMMENDATIONS ===');
+            
+            if (testResults.themeSwitching && !testResults.themeSwitching.passed) {
+                log('❌ Theme switching is too slow. Recommendations:');
+                log('   - Implement CSS variable caching');
+                log('   - Use requestAnimationFrame for DOM updates');
+                log('   - Consider theme preloading');
+            } else if (testResults.themeSwitching) {
+                log('✅ Theme switching performance is excellent');
+            }
+
+            if (testResults.css && testResults.css.results.some(r => r.average > 10)) {
+                log('⚠️ CSS generation could be optimized:');
+                log('   - Cache generated CSS strings');
+                log('   - Implement incremental CSS updates');
+            }
+
+            if (testResults.memory && !testResults.memory.passed) {
+                log('⚠️ Memory usage is high. Consider:');
+                log('   - Implement theme object pooling');
+                log('   - Clean up unused theme data');
+            }
+
+            log('\n=== OPTIMIZATION OPPORTUNITIES ===');
+            log('1. CSS Variable Caching - Cache generated CSS to avoid regeneration');
+            log('2. Batch DOM Updates - Group CSS variable updates');
+            log('3. Lazy Loading - Generate component CSS only when needed');
+            log('4. Storage Optimization - Store only theme differences');
+            log('5. Event Debouncing - Debounce rapid theme changes');
+        }
+
+        function log(message) {
+            const logElement = document.getElementById('performance-log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        // Initialize
+        log('Theme Performance Analysis Tool Ready');
+        log('Click "Run Performance Tests" to start analysis');
+    </script>
+</body>
+</html>

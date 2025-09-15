@@ -1,0 +1,133 @@
+/* Base typography component styles */
+.typography {
+  margin: 0;
+  font-family: var(--font-primary);
+  line-height: var(--line-height-base, 1.5);
+  color: var(--color-text-primary);
+  transition: color var(--transition-fast, 150ms ease);
+}
+
+/* Typography variants with semantic sizing */
+.variant-h1 {
+  font-size: var(--font-size-xxl, 24px);
+  font-weight: var(--font-weight-semibold, 600);
+  line-height: var(--line-height-tight, 1.2);
+}
+
+.variant-h2 {
+  font-size: var(--font-size-xl, 20px);
+  font-weight: var(--font-weight-semibold, 600);
+  line-height: var(--line-height-tight, 1.2);
+}
+
+.variant-h3 {
+  font-size: var(--font-size-lg, 17px);
+  font-weight: var(--font-weight-medium, 500);
+  line-height: var(--line-height-tight, 1.2);
+}
+
+.variant-h4 {
+  font-size: var(--font-size-base, 15px);
+  font-weight: var(--font-weight-medium, 500);
+  line-height: var(--line-height-base, 1.5);
+}
+
+.variant-h5 {
+  font-size: var(--font-size-sm, 13px);
+  font-weight: var(--font-weight-medium, 500);
+  line-height: var(--line-height-base, 1.5);
+}
+
+.variant-h6 {
+  font-size: var(--font-size-xs, 11px);
+  font-weight: var(--font-weight-medium, 500);
+  line-height: var(--line-height-base, 1.5);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.variant-body {
+  font-size: var(--font-size-base, 15px);
+  font-weight: var(--font-weight-regular, 400);
+  line-height: var(--line-height-relaxed, 1.75);
+}
+
+.variant-caption {
+  font-size: var(--font-size-sm, 13px);
+  font-weight: var(--font-weight-regular, 400);
+  line-height: var(--line-height-base, 1.5);
+}
+
+.variant-label {
+  font-size: var(--font-size-sm, 13px);
+  font-weight: var(--font-weight-medium, 500);
+  line-height: var(--line-height-base, 1.5);
+}
+
+/* Font weight modifiers */
+.weight-light {
+  font-weight: var(--font-weight-light, 300) !important;
+}
+
+.weight-regular {
+  font-weight: var(--font-weight-regular, 400) !important;
+}
+
+.weight-medium {
+  font-weight: var(--font-weight-medium, 500) !important;
+}
+
+.weight-semibold {
+  font-weight: var(--font-weight-semibold, 600) !important;
+}
+
+/* Font family modifiers */
+.family-sans {
+  font-family: var(--font-primary, 'Inter', -apple-system, BlinkMacSystemFont, sans-serif) !important;
+}
+
+.family-mono {
+  font-family: var(--font-mono, 'JetBrains Mono', 'Courier New', monospace) !important;
+}
+
+/* Color modifiers */
+.color-primary {
+  color: var(--color-text-primary) !important;
+}
+
+.color-secondary {
+  color: var(--color-text-secondary) !important;
+}
+
+.color-bright {
+  color: var(--color-text-bright) !important;
+}
+
+/* Responsive adjustments for larger screens */
+@media (min-width: 768px) {
+  .variant-h1 {
+    font-size: 28px;
+  }
+  
+  .variant-h2 {
+    font-size: 24px;
+  }
+  
+  .variant-h3 {
+    font-size: 20px;
+  }
+}
+
+/* Ensure proper rendering for monospace fonts */
+.family-mono {
+  font-feature-settings: 'liga' 0, 'kern' 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Improve readability for small text */
+.variant-caption,
+.variant-h6 {
+  -webkit-font-smoothing: subpixel-antialiased;
+  -moz-osx-font-smoothing: auto;
+}

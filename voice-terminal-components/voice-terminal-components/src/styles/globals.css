@@ -1,0 +1,91 @@
+/* Global styles and CSS variables for Paper theme */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  /* Default to light theme */
+  --color-bg-primary: #EFF2F9;
+  --color-bg-secondary: #E4EBF1;
+  --color-bg-tertiary: #B5BFC6;
+  --color-text-primary: #6E7F8D;
+  --color-text-secondary: #B5BFC6;
+  --color-text-bright: #6E7F8D;
+  --shadow-inner: #FAFBFF;
+  --shadow-outer: rgba(22, 27, 29, 0.23);
+  
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-xxl: 48px;
+  
+  /* Typography */
+  --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+  
+  /* Border radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 9999px;
+  
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-base: 250ms ease;
+  --transition-slow: 350ms ease;
+}
+
+[data-theme="paper-light"] {
+  --color-bg-primary: #EFF2F9;
+  --color-bg-secondary: #E4EBF1;
+  --color-bg-tertiary: #B5BFC6;
+  --color-text-primary: #6E7F8D;
+  --color-text-secondary: #B5BFC6;
+  --color-text-bright: #6E7F8D;
+  --shadow-raised: -5px -5px 10px #FAFBFF, 5px 5px 10px rgba(22, 27, 29, 0.23);
+  --shadow-recessed: inset -5px -5px 10px #FAFBFF, inset 5px 5px 10px rgba(22, 27, 29, 0.23);
+  --shadow-flat: -2px -2px 5px #FAFBFF, 2px 2px 5px rgba(22, 27, 29, 0.23);
+}
+
+[data-theme="paper-dark"] {
+  --color-bg-primary: #1A1B1E;
+  --color-bg-secondary: #222326;
+  --color-bg-tertiary: #2A2B2F;
+  --color-text-primary: #E4E6E9;
+  --color-text-secondary: #B8BCC3;
+  --color-text-bright: #F0F2F5;
+  --shadow-raised: -2px -2px 6px rgba(47, 49, 53, 0.3), 2px 2px 6px rgba(15, 16, 18, 0.5);
+  --shadow-recessed: inset -2px -2px 6px rgba(47, 49, 53, 0.3), inset 2px 2px 6px rgba(15, 16, 18, 0.5);
+  --shadow-flat: -1px -1px 3px rgba(47, 49, 53, 0.3), 1px 1px 3px rgba(15, 16, 18, 0.5);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-primary);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Utility classes */
+.shadow-raised {
+  box-shadow: var(--shadow-raised);
+}
+
+.shadow-recessed {
+  box-shadow: var(--shadow-recessed);
+}
+
+.shadow-flat {
+  box-shadow: var(--shadow-flat);
+}

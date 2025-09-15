@@ -1,0 +1,299 @@
+/* Base button styles with neumorphic design */
+.button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  transition: all 250ms ease;
+  border-radius: 8px;
+  
+  /* Focus styles for accessibility */
+  &:focus-visible {
+    outline: 2px solid #5B8DEE;
+    outline-offset: 2px;
+  }
+
+  /* Prevent text selection */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* Size variants */
+.sm {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+  min-width: 64px;
+}
+
+.md {
+  height: 40px;
+  padding: 0 16px;
+  font-size: 15px;
+  min-width: 80px;
+}
+
+.lg {
+  height: 48px;
+  padding: 0 20px;
+  font-size: 17px;
+  min-width: 96px;
+}
+
+/* Icon spacing adjustments */
+.hasLeftIcon {
+  padding-left: 12px;
+}
+
+.hasRightIcon {
+  padding-right: 12px;
+}
+
+.sm.hasLeftIcon {
+  padding-left: 8px;
+}
+
+.sm.hasRightIcon {
+  padding-right: 8px;
+}
+
+.lg.hasLeftIcon {
+  padding-left: 16px;
+}
+
+.lg.hasRightIcon {
+  padding-right: 16px;
+}
+
+/* Icon-only buttons */
+.iconOnly {
+  width: var(--button-height);
+  min-width: var(--button-height);
+  padding: 0;
+}
+
+.sm.iconOnly {
+  --button-height: 32px;
+}
+
+.md.iconOnly {
+  --button-height: 40px;
+}
+
+.lg.iconOnly {
+  --button-height: 48px;
+}
+
+/* Light theme styles */
+@media (prefers-color-scheme: light) {
+  /* Primary variant - raised elevation */
+  .primary {
+    background: #EFF2F9;
+    color: #6E7F8D;
+    box-shadow: -5px -5px 10px #FAFBFF, 5px 5px 10px rgba(22, 27, 29, 0.23);
+  }
+
+  .primary:hover:not(.disabled):not(.loading) {
+    box-shadow: -6px -6px 12px #FAFBFF, 6px 6px 12px rgba(22, 27, 29, 0.25);
+    transform: translateY(-1px);
+  }
+
+  .primary:active:not(.disabled):not(.loading) {
+    box-shadow: -2px -2px 5px #FAFBFF, 2px 2px 5px rgba(22, 27, 29, 0.23);
+    transform: translateY(0);
+  }
+
+  /* Secondary variant - flat elevation */
+  .secondary {
+    background: #E4EBF1;
+    color: #6E7F8D;
+    box-shadow: -2px -2px 5px #FAFBFF, 2px 2px 5px rgba(22, 27, 29, 0.23);
+  }
+
+  .secondary:hover:not(.disabled):not(.loading) {
+    box-shadow: -3px -3px 6px #FAFBFF, 3px 3px 6px rgba(22, 27, 29, 0.25);
+  }
+
+  .secondary:active:not(.disabled):not(.loading) {
+    box-shadow: inset -2px -2px 5px #FAFBFF, inset 2px 2px 5px rgba(22, 27, 29, 0.23);
+  }
+
+  /* Ghost variant - no shadow, subtle hover */
+  .ghost {
+    background: transparent;
+    color: #6E7F8D;
+    box-shadow: none;
+  }
+
+  .ghost:hover:not(.disabled):not(.loading) {
+    background: rgba(239, 242, 249, 0.5);
+    box-shadow: -2px -2px 5px #FAFBFF, 2px 2px 5px rgba(22, 27, 29, 0.15);
+  }
+
+  .ghost:active:not(.disabled):not(.loading) {
+    background: rgba(228, 235, 241, 0.7);
+    box-shadow: inset -1px -1px 3px #FAFBFF, inset 1px 1px 3px rgba(22, 27, 29, 0.15);
+  }
+}
+
+/* Dark theme styles */
+@media (prefers-color-scheme: dark) {
+  /* Primary variant - raised elevation */
+  .primary {
+    background: #1A1B1E;
+    color: #E4E6E9;
+    box-shadow: -2px -2px 6px rgba(47, 49, 53, 0.3), 2px 2px 6px rgba(15, 16, 18, 0.5);
+  }
+
+  .primary:hover:not(.disabled):not(.loading) {
+    box-shadow: -3px -3px 8px rgba(47, 49, 53, 0.35), 3px 3px 8px rgba(15, 16, 18, 0.55);
+    transform: translateY(-1px);
+  }
+
+  .primary:active:not(.disabled):not(.loading) {
+    box-shadow: -1px -1px 3px rgba(47, 49, 53, 0.3), 1px 1px 3px rgba(15, 16, 18, 0.5);
+    transform: translateY(0);
+  }
+
+  /* Secondary variant - flat elevation */
+  .secondary {
+    background: #222326;
+    color: #B8BCC3;
+    box-shadow: -1px -1px 3px rgba(47, 49, 53, 0.3), 1px 1px 3px rgba(15, 16, 18, 0.5);
+  }
+
+  .secondary:hover:not(.disabled):not(.loading) {
+    box-shadow: -2px -2px 4px rgba(47, 49, 53, 0.35), 2px 2px 4px rgba(15, 16, 18, 0.55);
+  }
+
+  .secondary:active:not(.disabled):not(.loading) {
+    box-shadow: inset -1px -1px 3px rgba(47, 49, 53, 0.3), inset 1px 1px 3px rgba(15, 16, 18, 0.5);
+  }
+
+  /* Ghost variant - no shadow, subtle hover */
+  .ghost {
+    background: transparent;
+    color: #B8BCC3;
+    box-shadow: none;
+  }
+
+  .ghost:hover:not(.disabled):not(.loading) {
+    background: rgba(42, 43, 47, 0.5);
+    box-shadow: -1px -1px 3px rgba(47, 49, 53, 0.2), 1px 1px 3px rgba(15, 16, 18, 0.3);
+  }
+
+  .ghost:active:not(.disabled):not(.loading) {
+    background: rgba(34, 35, 38, 0.7);
+    box-shadow: inset -1px -1px 2px rgba(47, 49, 53, 0.2), inset 1px 1px 2px rgba(15, 16, 18, 0.3);
+  }
+}
+
+/* Loading state */
+.loading {
+  pointer-events: none;
+  position: relative;
+}
+
+.loading .content {
+  opacity: 0.7;
+}
+
+/* Disabled state */
+.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+/* Full width */
+.fullWidth {
+  width: 100%;
+}
+
+/* Icon styles */
+.leftIcon,
+.rightIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.content {
+  display: inline-flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Loading spinner */
+.loadingSpinner {
+  position: absolute;
+  left: 12px;
+}
+
+.sm .loadingSpinner {
+  left: 8px;
+}
+
+.lg .loadingSpinner {
+  left: 16px;
+}
+
+.iconOnly .loadingSpinner {
+  position: static;
+  left: auto;
+}
+
+/* Spinner animation */
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .button {
+    border: 2px solid currentColor;
+  }
+  
+  .button:focus-visible {
+    outline: 3px solid;
+    outline-offset: 3px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .button {
+    transition: none;
+  }
+  
+  .spinner {
+    animation: none;
+  }
+  
+  .button:hover:not(.disabled):not(.loading) {
+    transform: none;
+  }
+}

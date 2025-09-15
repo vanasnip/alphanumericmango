@@ -1,0 +1,199 @@
+/* HexagonGrid Styles */
+.hexagonGrid {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-base);
+  --animation-speed: 1;
+}
+
+.hexagonContainer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.hexagonWrapper {
+  position: absolute;
+  transition: all calc(var(--transition-base) / var(--animation-speed));
+}
+
+/* Grid states */
+.singleHexagon {
+  width: 64px !important;
+  height: 64px !important;
+}
+
+.expandedGrid {
+  transition: width var(--transition-slow), height var(--transition-slow);
+}
+
+/* Individual Hexagon Styles */
+.hexagon {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  background-color: var(--color-bg-secondary);
+  clip-path: polygon(30% 0%, 70% 0%, 100% 50%, 70% 100%, 30% 100%, 0% 50%);
+  transition: 
+    box-shadow calc(var(--transition-fast) / var(--animation-speed)),
+    transform calc(var(--transition-base) / var(--animation-speed)),
+    background-color calc(var(--transition-base) / var(--animation-speed));
+  animation-duration: calc(2s * var(--animation-speed));
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+}
+
+/* Shadow States */
+.hexagonFlat {
+  box-shadow: var(--shadow-flat);
+  transform: translateZ(0);
+}
+
+.hexagonMid {
+  box-shadow: var(--shadow-flat);
+  transform: translateZ(0) scale(1.05);
+}
+
+.hexagonRaised {
+  box-shadow: var(--shadow-raised);
+  transform: translateZ(0) scale(1.1);
+}
+
+/* Active state for amplitude-driven changes */
+.hexagonActive {
+  animation-name: hexagonPulse;
+}
+
+/* Project color pulse effect (experimental) */
+.hexagonPulse {
+  animation-name: hexagonColorPulse;
+}
+
+/* Keyframe Animations */
+@keyframes hexagonPulse {
+  0%, 100% {
+    transform: translateZ(0) scale(1);
+    box-shadow: var(--shadow-flat);
+  }
+  50% {
+    transform: translateZ(0) scale(1.15);
+    box-shadow: var(--shadow-raised);
+  }
+}
+
+@keyframes hexagonColorPulse {
+  0%, 100% {
+    background-color: var(--color-bg-secondary);
+    box-shadow: var(--shadow-flat);
+    transform: translateZ(0) scale(1);
+  }
+  25% {
+    background-color: var(--project-color, var(--color-bg-tertiary));
+    box-shadow: var(--shadow-raised);
+    transform: translateZ(0) scale(1.1);
+  }
+  50% {
+    background-color: var(--project-color, var(--color-bg-tertiary));
+    box-shadow: var(--shadow-raised);
+    transform: translateZ(0) scale(1.15);
+  }
+  75% {
+    background-color: var(--project-color, var(--color-bg-tertiary));
+    box-shadow: var(--shadow-raised);
+    transform: translateZ(0) scale(1.1);
+  }
+}
+
+/* Frequency-based intensity variations */
+.hexagon[data-frequency="0"] {
+  animation-duration: calc(4s * var(--animation-speed));
+}
+
+.hexagon[data-frequency*="0.1"],
+.hexagon[data-frequency*="0.2"],
+.hexagon[data-frequency*="0.3"] {
+  animation-duration: calc(3s * var(--animation-speed));
+}
+
+.hexagon[data-frequency*="0.4"],
+.hexagon[data-frequency*="0.5"],
+.hexagon[data-frequency*="0.6"] {
+  animation-duration: calc(2s * var(--animation-speed));
+}
+
+.hexagon[data-frequency*="0.7"],
+.hexagon[data-frequency*="0.8"],
+.hexagon[data-frequency*="0.9"] {
+  animation-duration: calc(1.5s * var(--animation-speed));
+}
+
+/* High frequency hexagons */
+.hexagon[data-frequency="1"] {
+  animation-duration: calc(1s * var(--animation-speed));
+}
+
+/* Hover effects (for Storybook interaction) */
+.hexagon:hover {
+  transform: translateZ(0) scale(1.2);
+  box-shadow: var(--shadow-raised);
+  transition: all var(--transition-fast);
+}
+
+/* Accessibility and reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .hexagon {
+    animation-duration: 0.01s;
+    animation-iteration-count: 1;
+  }
+  
+  .hexagonWrapper {
+    transition: none;
+  }
+  
+  .hexagonGrid {
+    transition: none;
+  }
+}
+
+/* Performance optimizations */
+.hexagon {
+  will-change: transform, box-shadow;
+  contain: layout style paint;
+}
+
+/* Grid layout optimizations for different ring counts */
+.hexagonGrid[data-ring-count="0"] .hexagonWrapper {
+  transition-delay: 0ms;
+}
+
+.hexagonGrid[data-ring-count="1"] .hexagonWrapper {
+  transition-delay: calc(50ms / var(--animation-speed));
+}
+
+.hexagonGrid[data-ring-count="2"] .hexagonWrapper {
+  transition-delay: calc(100ms / var(--animation-speed));
+}
+
+.hexagonGrid[data-ring-count="3"] .hexagonWrapper {
+  transition-delay: calc(150ms / var(--animation-speed));
+}
+
+/* Theme-specific adjustments */
+[data-theme="paper-dark"] .hexagon {
+  background-color: var(--color-bg-secondary);
+}
+
+[data-theme="paper-dark"] .hexagonRaised {
+  box-shadow: var(--shadow-raised);
+}
+
+[data-theme="paper-light"] .hexagon {
+  background-color: var(--color-bg-secondary);
+}
+
+[data-theme="paper-light"] .hexagonRaised {
+  box-shadow: var(--shadow-raised);
+}

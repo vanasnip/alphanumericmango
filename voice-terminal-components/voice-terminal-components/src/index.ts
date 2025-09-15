@@ -18,10 +18,15 @@ export type {
 export { Button } from './components/Button';
 export type { ButtonProps } from './components/Button/Button';
 
-// Phase 2 Components (Pending)
-// export { MessageBubble } from './components/MessageBubble';
-// export { HexagonGrid } from './components/HexagonGrid';
-// export { TabBar } from './components/TabBar';
+// Phase 2 Components (Complete)
+export { MessageBubble } from './components/MessageBubble';
+export type { MessageBubbleProps } from './components/MessageBubble/MessageBubble';
+
+export { HexagonGrid, Hexagon } from './components/HexagonGrid';
+export type { HexagonGridProps, HexagonProps } from './components/HexagonGrid/HexagonGrid';
+
+export { TabBar, Tab } from './components/TabBar';
+export type { TabBarProps, TabProps } from './components/TabBar/TabBar';
 // export { TextField } from './components/TextField';
 // export { ProjectCard } from './components/ProjectCard';
 

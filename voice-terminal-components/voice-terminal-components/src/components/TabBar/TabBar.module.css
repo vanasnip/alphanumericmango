@@ -1,0 +1,288 @@
+/* TabBar Component Styles */
+
+.tabBar {
+  display: flex;
+  align-items: center;
+  position: relative;
+  height: 40px;
+  background: var(--bg-primary);
+  border-bottom: none; /* Seamless connection to content */
+  overflow: hidden;
+}
+
+.tabList {
+  display: flex;
+  flex: 1;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.tabList::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+.hasOverflow {
+  mask: linear-gradient(
+    to right,
+    transparent 0px,
+    black 20px,
+    black calc(100% - 20px),
+    transparent 100%
+  );
+  -webkit-mask: linear-gradient(
+    to right,
+    transparent 0px,
+    black 20px,
+    black calc(100% - 20px),
+    transparent 100%
+  );
+}
+
+/* Individual Tab Styles */
+.tab {
+  display: flex;
+  align-items: center;
+  position: relative;
+  height: 100%;
+  min-width: 120px;
+  max-width: 240px;
+  padding: 0 16px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  transition: all var(--transition-base);
+  border-radius: 8px 8px 0 0; /* Top radius only for seamless connection */
+  border: none;
+  outline: none;
+  margin-right: 1px; /* Subtle separation */
+}
+
+.tab:last-child {
+  margin-right: 0;
+}
+
+.tab:hover:not(.tabDisabled):not(.tabActive) {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.tab:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--focus-color, #5B8DEE);
+}
+
+.tabActive {
+  background: var(--bg-primary); /* Matches content area */
+  color: var(--text-primary);
+  z-index: 1;
+}
+
+.tabDisabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.tabCloseable {
+  padding-right: 8px; /* Reduced padding for close button */
+}
+
+/* Tab Content Layout */
+.tabContent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0; /* Allow text truncation */
+}
+
+.tabIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  opacity: 0.8;
+}
+
+.tabActive .tabIcon {
+  opacity: 1;
+}
+
+.tabLabel {
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.tabActive .tabLabel {
+  font-weight: 500;
+}
+
+/* Close Button */
+.tabCloseButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 8px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.tabCloseButton:hover {
+  opacity: 1;
+  background: var(--bg-tertiary);
+}
+
+.tabCloseButton:focus-visible {
+  outline: 1px solid var(--focus-color, #5B8DEE);
+  outline-offset: 1px;
+}
+
+.tabActive .tabCloseButton:hover {
+  background: var(--bg-secondary);
+}
+
+/* Active Tab Indicator */
+.tabActiveIndicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--project-color);
+  transition: all var(--transition-base);
+}
+
+/* Project Color Mapping */
+.tab[data-project-color="0"] .tabActiveIndicator { background: #F4B942; }
+.tab[data-project-color="1"] .tabActiveIndicator { background: #5B8DEE; }
+.tab[data-project-color="2"] .tabActiveIndicator { background: #48C78E; }
+.tab[data-project-color="3"] .tabActiveIndicator { background: #3ABFF8; }
+.tab[data-project-color="4"] .tabActiveIndicator { background: #9333EA; }
+.tab[data-project-color="5"] .tabActiveIndicator { background: #92754C; }
+.tab[data-project-color="6"] .tabActiveIndicator { background: #EE5A52; }
+.tab[data-project-color="7"] .tabActiveIndicator { background: #EC4899; }
+.tab[data-project-color="8"] .tabActiveIndicator { background: #6366F1; }
+
+/* Scroll Buttons */
+.scrollButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 100%;
+  background: var(--bg-primary);
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  z-index: 2;
+}
+
+.scrollButton:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.scrollButton:focus-visible {
+  outline: 1px solid var(--focus-color, #5B8DEE);
+  outline-offset: -1px;
+}
+
+.scrollLeft {
+  border-right: 1px solid var(--bg-secondary);
+}
+
+.scrollRight {
+  border-left: 1px solid var(--bg-secondary);
+}
+
+/* Theme Variables */
+:root {
+  --transition-fast: 150ms ease;
+  --transition-base: 250ms ease;
+  --focus-color: #5B8DEE;
+}
+
+/* Light Theme */
+[data-theme="light"] .tabBar,
+:root:not([data-theme]) .tabBar {
+  --bg-primary: #EFF2F9;
+  --bg-secondary: #E4EBF1;
+  --bg-tertiary: #B5BFC6;
+  --text-primary: #6E7F8D;
+  --text-secondary: #B5BFC6;
+}
+
+/* Dark Theme */
+[data-theme="dark"] .tabBar {
+  --bg-primary: #1A1B1E;
+  --bg-secondary: #222326;
+  --bg-tertiary: #2A2B2F;
+  --text-primary: #E4E6E9;
+  --text-secondary: #B8BCC3;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .tab {
+    min-width: 100px;
+    max-width: 180px;
+    padding: 0 12px;
+  }
+  
+  .tabCloseable {
+    padding-right: 6px;
+  }
+  
+  .tabLabel {
+    font-size: 12px;
+  }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .tab {
+    border: 1px solid currentColor;
+  }
+  
+  .tabActive {
+    border-width: 2px;
+  }
+  
+  .tabActiveIndicator {
+    height: 4px;
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .tab,
+  .tabCloseButton,
+  .tabActiveIndicator,
+  .scrollButton {
+    transition: none;
+  }
+  
+  .tabList {
+    scroll-behavior: auto;
+  }
+}

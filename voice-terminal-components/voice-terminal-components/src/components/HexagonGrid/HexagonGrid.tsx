@@ -19,6 +19,8 @@ export interface HexagonGridProps {
   className?: string;
   /** Animation speed multiplier */
   animationSpeed?: number;
+  /** Total size of the grid in pixels (100-250px recommended) */
+  size?: number;
 }
 
 interface HexagonData {
@@ -85,6 +87,7 @@ export const HexagonGrid = memo<HexagonGridProps>(({
   enableColorPulse = false,
   className,
   animationSpeed = 1,
+  size = 200, // Default size of 200px
 }) => {
   /*
    * AMPLITUDE-PROBABILITY MAPPING SYSTEM:
@@ -130,27 +133,43 @@ export const HexagonGrid = memo<HexagonGridProps>(({
 
   const gridStyle: React.CSSProperties = {
     '--animation-speed': animationSpeed,
+    width: `${size}px`,
+    height: `${size}px`,
   } as React.CSSProperties;
 
   // Generate shadow filters for different visibility states and topology variations
   const generateShadowFilters = () => {
     return [
-      // Depression filter - inverted shadow (appears pressed into paper)
+      // Depression filter - inverted shadow (appears pressed into paper) with gradient spread
       <filter key="shadow-depression" id="shadow-depression" x="-50%" y="-50%" width="200%" height="200%">
-        <feDropShadow dx="-2" dy="-2" stdDeviation="3" floodOpacity="0.3" floodColor="rgba(0,0,0,0.8)" />
-        <feDropShadow dx="2" dy="2" stdDeviation="2" floodOpacity="0.7" floodColor="white" />
+        <feDropShadow dx="-3" dy="-3" stdDeviation="10" floodOpacity="0.35" floodColor="rgba(0,0,0,0.9)" />
+        <feDropShadow dx="3" dy="3" stdDeviation="8" floodOpacity="0.8" floodColor="white" />
       </filter>,
       
-      // Extrusion filter - normal shadow (appears raised from paper) 
+      // Extrusion filter - normal shadow (appears raised from paper) with gradient spread
       <filter key="shadow-extrusion" id="shadow-extrusion" x="-50%" y="-50%" width="200%" height="200%">
-        <feDropShadow dx="2" dy="2" stdDeviation="3" floodOpacity="0.2" floodColor="rgba(0,0,0,0.6)" />
-        <feDropShadow dx="-1" dy="-1" stdDeviation="2" floodOpacity="0.8" floodColor="white" />
+        <feDropShadow dx="3" dy="3" stdDeviation="9" floodOpacity="0.3" floodColor="rgba(0,0,0,0.8)" />
+        <feDropShadow dx="-2" dy="-2" stdDeviation="8" floodOpacity="0.85" floodColor="white" />
       </filter>,
       
-      // Faint filter - very subtle shadow for quiet state ring 1
+      // Deep crater filter - for center hexagon with wide gradient spread
+      <filter key="shadow-crater-center" id="shadow-crater-center" x="-50%" y="-50%" width="200%" height="200%">
+        <feDropShadow dx="-5" dy="-5" stdDeviation="12" floodOpacity="0.45" floodColor="rgba(0,0,0,0.95)" />
+        <feDropShadow dx="6" dy="6" stdDeviation="10" floodOpacity="0.9" floodColor="white" />
+        <feDropShadow dx="-2" dy="-2" stdDeviation="20" floodOpacity="0.2" floodColor="rgba(0,0,0,0.8)" />
+      </filter>,
+      
+      // Elevated rim filter - for ring 1 with gradient spread
+      <filter key="shadow-rim-elevated" id="shadow-rim-elevated" x="-50%" y="-50%" width="200%" height="200%">
+        <feDropShadow dx="4" dy="4" stdDeviation="10" floodOpacity="0.35" floodColor="rgba(0,0,0,0.85)" />
+        <feDropShadow dx="-3" dy="-3" stdDeviation="9" floodOpacity="0.85" floodColor="white" />
+        <feDropShadow dx="2" dy="2" stdDeviation="15" floodOpacity="0.15" floodColor="rgba(0,0,0,0.7)" />
+      </filter>,
+      
+      // Faint filter - very subtle shadow with soft gradient
       <filter key="shadow-faint" id="shadow-faint" x="-50%" y="-50%" width="200%" height="200%">
-        <feDropShadow dx="-1" dy="-1" stdDeviation="3" floodOpacity="0.05" floodColor="rgba(0,0,0,0.8)" />
-        <feDropShadow dx="1" dy="1" stdDeviation="2" floodOpacity="0.15" floodColor="white" />
+        <feDropShadow dx="-2" dy="-2" stdDeviation="8" floodOpacity="0.1" floodColor="rgba(0,0,0,0.8)" />
+        <feDropShadow dx="2" dy="2" stdDeviation="7" floodOpacity="0.2" floodColor="white" />
       </filter>
     ];
   };
@@ -165,8 +184,7 @@ export const HexagonGrid = memo<HexagonGridProps>(({
       <svg
         className={styles.honeycomb}
         viewBox={viewBoxDimensions.viewBox}
-        width={viewBoxDimensions.width}
-        height={viewBoxDimensions.height}
+        preserveAspectRatio="xMidYMid meet"
         xmlns="http://www.w3.org/2000/svg"
       >
         <defs>
@@ -176,9 +194,9 @@ export const HexagonGrid = memo<HexagonGridProps>(({
         {hexagonData.map((hexagon, index) => {
           // Determine visibility based on amplitude and ring-based probability system
           const getVisibilityFilter = (): string => {
-            // Quiet state: only center visible with extrusion, ring 1 with faint shadow
+            // Quiet state: center as crater, ring 1 with faint shadow
             if (amplitude <= 0) {
-              if (hexagon.ring === 0) return 'url(#shadow-extrusion)';
+              if (hexagon.ring === 0) return 'url(#shadow-crater-center)';
               if (hexagon.ring === 1) return 'url(#shadow-faint)';
               return 'none'; // invisible
             }
@@ -203,14 +221,25 @@ export const HexagonGrid = memo<HexagonGridProps>(({
             
             if (!isVisible) return 'none';
             
-            // For very quiet state (low amplitude), ring 1 gets faint shadow
-            if (amplitude <= 15 && hexagon.ring === 1) {
+            // Crater topology: center is deeply depressed, ring 1 forms elevated rim
+            if (hexagon.ring === 0) {
+              return 'url(#shadow-crater-center)'; // Deep depression in center
+            }
+            
+            // Ring 1 forms the elevated rim around the crater (mostly raised)
+            if (hexagon.ring === 1) {
+              // 80% chance of being elevated (rim), 20% chance of slight variation
+              return Math.random() > 0.2 ? 'url(#shadow-rim-elevated)' : 'url(#shadow-extrusion)';
+            }
+            
+            // For very quiet state (low amplitude), outer rings get subtle shadows
+            if (amplitude <= 15 && hexagon.ring >= 2) {
               return 'url(#shadow-faint)';
             }
             
-            // Topological variation: randomly assign depression or extrusion for landscape effect
-            // This creates varied topography across the visible hexagons
-            return Math.random() > 0.5 ? 'url(#shadow-depression)' : 'url(#shadow-extrusion)';
+            // Outer rings (2+): mixed topology with slight bias toward depression
+            // This creates a gradual slope down from the rim
+            return Math.random() > 0.4 ? 'url(#shadow-depression)' : 'url(#shadow-extrusion)';
           };
 
           return (

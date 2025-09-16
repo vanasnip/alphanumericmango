@@ -83,6 +83,15 @@ It starts with a single hexagon at rest and expands to multiple rings based on a
       },
       description: 'Animation speed multiplier',
     },
+    size: {
+      control: { 
+        type: 'range', 
+        min: 100, 
+        max: 400, 
+        step: 10 
+      },
+      description: 'Total size of the grid in pixels (100-250px recommended)',
+    },
     className: {
       control: 'text',
       description: 'Additional CSS class names',
@@ -96,6 +105,7 @@ It starts with a single hexagon at rest and expands to multiple rings based on a
     projectColor: colors.projects[0],
     enableColorPulse: false,
     animationSpeed: 1,
+    size: 200,
   },
 } satisfies Meta<typeof HexagonGrid>;
 
@@ -396,6 +406,79 @@ export const PerformanceTest: Story = {
     docs: {
       description: {
         story: 'Performance test with maximum hexagons (91) and dynamic frequency data across all 5 rings.',
+      },
+    },
+  },
+};
+
+// Size variations
+export const SmallSize: Story = {
+  args: {
+    amplitude: 50,
+    size: 100,
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Compact 100px grid - perfect for small UI spaces or toolbar indicators.',
+      },
+    },
+  },
+};
+
+export const MediumSize: Story = {
+  args: {
+    amplitude: 50,
+    size: 175,
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Medium 175px grid - balanced size for most UI contexts.',
+      },
+    },
+  },
+};
+
+export const LargeSize: Story = {
+  args: {
+    amplitude: 50,
+    size: 250,
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Large 250px grid - ideal for prominent voice indicators or hero sections.',
+      },
+    },
+  },
+};
+
+export const SizeComparison: Story = {
+  render: () => (
+    <div style={{ display: 'flex', gap: '32px', alignItems: 'center', flexWrap: 'wrap' }}>
+      <div style={{ textAlign: 'center' }}>
+        <HexagonGrid amplitude={50} size={100} />
+        <p style={{ marginTop: '8px', color: 'var(--color-text-secondary)' }}>100px</p>
+      </div>
+      <div style={{ textAlign: 'center' }}>
+        <HexagonGrid amplitude={50} size={150} />
+        <p style={{ marginTop: '8px', color: 'var(--color-text-secondary)' }}>150px</p>
+      </div>
+      <div style={{ textAlign: 'center' }}>
+        <HexagonGrid amplitude={50} size={200} />
+        <p style={{ marginTop: '8px', color: 'var(--color-text-secondary)' }}>200px</p>
+      </div>
+      <div style={{ textAlign: 'center' }}>
+        <HexagonGrid amplitude={50} size={250} />
+        <p style={{ marginTop: '8px', color: 'var(--color-text-secondary)' }}>250px</p>
+      </div>
+    </div>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story: 'Visual comparison of different grid sizes from 100px to 250px.',
       },
     },
   },

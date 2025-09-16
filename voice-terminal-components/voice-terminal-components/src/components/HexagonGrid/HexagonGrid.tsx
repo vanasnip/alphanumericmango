@@ -22,53 +22,70 @@ export interface HexagonGridProps {
 }
 
 interface HexagonData {
-  x: number;
-  y: number;
+  path: string;
   ring: number;
   index: number;
-  q: number; // Hex grid Q coordinate (axial)
-  r: number; // Hex grid R coordinate (axial)
-  path: string; // SVG path for this hexagon
 }
 
-// Generate SVG path for a pointy-topped hexagon centered at (x, y) with given radius
-// Using correct pointy-topped hexagon math for perfect tessellation
-const generateHexagonPath = (x: number, y: number, radius: number): string => {
-  const points: [number, number][] = [];
+// Exact hexagon paths from filled.svg organized by ring distance from center
+// Center is approximately at (630, 364) based on the SVG layout
+const hexagonPaths: HexagonData[] = [
+  // Ring 0 - Center hexagon
+  { path: "M630 156L720 208V312L630 364L540 312V208L630 156Z", ring: 0, index: 0 },
   
-  // Generate 6 points for pointy-topped hexagon starting at 90° (top), going clockwise
-  // For pointy-topped: vertices are at angles where the hexagon has points at top and bottom
-  for (let i = 0; i < 6; i++) {
-    const angle = (Math.PI / 2) - (i * Math.PI / 3); // Start at 90°, go clockwise
-    const px = x + radius * Math.cos(angle);
-    const py = y - radius * Math.sin(angle); // Negative because SVG Y increases downward
-    points.push([px, py]);
-  }
+  // Ring 1 - 6 hexagons around center
+  { path: "M720 312L810 364V468L720 520L630 468V364L720 312Z", ring: 1, index: 0 },
+  { path: "M540 312L630 364V468L540 520L450 468V364L540 312Z", ring: 1, index: 1 },
+  { path: "M450 364L540 312V208L450 156L360 208V312L450 364Z", ring: 1, index: 2 },
+  { path: "M540 208L630 156V52L540 -1.01328e-05L450 52V156L540 208Z", ring: 1, index: 3 },
+  { path: "M720 208L810 156V52L720 -1.01328e-05L630 52V156L720 208Z", ring: 1, index: 4 },
+  { path: "M810 156L900 208V312L810 364L720 312V208L810 156Z", ring: 1, index: 5 },
   
-  // Create path string: M x,y L x,y L x,y L x,y L x,y L x,y Z
-  const [firstPoint, ...restPoints] = points;
-  const pathCommands = [
-    `M ${firstPoint[0]},${firstPoint[1]}`,
-    ...restPoints.map(([px, py]) => `L ${px},${py}`),
-    'Z'
-  ];
+  // Ring 2 - 12 hexagons in second ring
+  { path: "M900 312L990 364V468L900 520L810 468V364L900 312Z", ring: 2, index: 0 },
+  { path: "M810 468L900 520V624L810 676L720 624V520L810 468Z", ring: 2, index: 1 },
+  { path: "M630 468L720 520V624L630 676L540 624V520L630 468Z", ring: 2, index: 2 },
+  { path: "M450 468L540 520V624L450 676L360 624V520L450 468Z", ring: 2, index: 3 },
+  { path: "M360 312L450 364V468L360 520L270 468V364L360 312Z", ring: 2, index: 4 },
+  { path: "M270 364L360 312V208L270 156L180 208V312L270 364Z", ring: 2, index: 5 },
+  { path: "M360 208L450 156V52L360 -1.01328e-05L270 52V156L360 208Z", ring: 2, index: 6 },
+  { path: "M900 208L990 156V52L900 -1.01328e-05L810 52V156L900 208Z", ring: 2, index: 7 },
+  { path: "M1080 312L1170 364V468L1080 520L990 468V364L1080 312Z", ring: 2, index: 8 },
+  { path: "M990 364L1080 312V208L990 156L900 208V312L990 364Z", ring: 2, index: 9 },
+  { path: "M720 624L810 676V780L720 832L630 780V676L720 624Z", ring: 2, index: 10 },
+  { path: "M540 624L630 676V780L540 832L450 780V676L540 624Z", ring: 2, index: 11 },
   
-  return pathCommands.join(' ');
-};
+  // Ring 3 - 18 hexagons in third ring
+  { path: "M990 468L1080 520V624L990 676L900 624V520L990 468Z", ring: 3, index: 0 },
+  { path: "M900 624L990 676V780L900 832L810 780V676L900 624Z", ring: 3, index: 1 },
+  { path: "M810 780L900 832V936L810 988L720 936V832L810 780Z", ring: 3, index: 2 },
+  { path: "M630 780L720 832V936L630 988L540 936V832L630 780Z", ring: 3, index: 3 },
+  { path: "M450 780L540 832V936L450 988L360 936V832L450 780Z", ring: 3, index: 4 },
+  { path: "M360 624L450 676V780L360 832L270 780V676L360 624Z", ring: 3, index: 5 },
+  { path: "M270 676L360 624V520L270 468L180 520V624L270 676Z", ring: 3, index: 6 },
+  { path: "M180 520L270 468V364L180 312L90 364V468L180 520Z", ring: 3, index: 7 },
+  { path: "M1170 468L1260 520V624L1170 676L1080 624V520L1170 468Z", ring: 3, index: 8 },
+  { path: "M1080 832L1170 780V676L1080 624L990 676V780L1080 832Z", ring: 3, index: 9 },
+  { path: "M990 780L1080 832V936L990 988L900 936V832L990 780Z", ring: 3, index: 10 },
+  { path: "M900 936L990 988V1092L900 1144L810 1092V988L900 936Z", ring: 3, index: 11 },
+  { path: "M720 936L810 988V1092L720 1144L630 1092V988L720 936Z", ring: 3, index: 12 },
+  { path: "M540 936L630 988V1092L540 1144L450 1092V988L540 936Z", ring: 3, index: 13 },
+  { path: "M360 936L450 988V1092L360 1144L270 1092V988L360 936Z", ring: 3, index: 14 },
+  { path: "M270 780L360 832V936L270 988L180 936V832L270 780Z", ring: 3, index: 15 },
+  { path: "M180 624L270 676V780L180 832L90 780V676L180 624Z", ring: 3, index: 16 },
+  { path: "M90 676L180 624V520L90 468L0 520V624L90 676Z", ring: 3, index: 17 }
+];
 
 export const HexagonGrid = memo<HexagonGridProps>(({
   amplitude = 0,
   frequencies = [],
-  hexagonSize = 24,
-  spacing = 0, // For true honeycomb, hexagons should touch (spacing = 0)
+  hexagonSize = 24, // Not used anymore, but kept for API compatibility
+  spacing = 0, // Not used anymore, but kept for API compatibility
   projectColor,
   enableColorPulse = false,
   className,
   animationSpeed = 1,
 }) => {
-  // ALWAYS render all 91 hexagons (rings 0-5) - visibility controlled by amplitude-probability system
-  const ringCount = 5; // Always generate all 5 rings for static grid
-  
   /*
    * AMPLITUDE-PROBABILITY MAPPING SYSTEM:
    * 
@@ -77,8 +94,6 @@ export const HexagonGrid = memo<HexagonGridProps>(({
    * - Ring 1: 95% base probability 
    * - Ring 2: 75% base probability
    * - Ring 3: 50% base probability
-   * - Ring 4: 25% base probability  
-   * - Ring 5: 10% base probability
    * 
    * Amplitude modulation: adjustedProbability = baseProbability * (amplitude / 50)
    * - Higher amplitude = higher chance of outer rings appearing
@@ -93,119 +108,23 @@ export const HexagonGrid = memo<HexagonGridProps>(({
    * - Maintains paper-like aesthetic with varied shadows
    */
 
-  // Calculate hexagon positions using correct pointy-topped hexagon tessellation math
+  // Use the exact hexagon paths from filled.svg - no calculation needed!
   const hexagonData = useMemo((): HexagonData[] => {
-    const hexagons: HexagonData[] = [];
-    
-    // Fixed hexagon geometry for perfect tessellation (pointy-topped orientation)
-    // For hexagons to touch edge-to-edge (perfect honeycomb):
-    // - horizontalSpacing = √3 * radius (distance between centers horizontally)
-    // - verticalSpacing = 1.5 * radius (distance between row centers vertically)
-    const radius = hexagonSize;
-    const horizontalSpacing = Math.sqrt(3) * radius; // NO spacing parameter - always touching
-    const verticalSpacing = 1.5 * radius; // NO spacing parameter - always touching
-    
-    // Center hexagon (q=0, r=0)
-    const centerX = 0;
-    const centerY = 0;
-    
-    hexagons.push({
-      x: centerX,
-      y: centerY,
-      ring: 0,
-      index: 0,
-      q: 0,
-      r: 0,
-      path: generateHexagonPath(centerX, centerY, radius)
-    });
-    
-    // Generate rings using proper hexagonal grid algorithm
-    for (let ring = 1; ring <= ringCount; ring++) {
-      let index = 0;
-      
-      // Direction vectors in axial coordinates (q, r)
-      const directions = [
-        [1, 0],   // East
-        [0, 1],   // Southeast  
-        [-1, 1],  // Southwest
-        [-1, 0],  // West
-        [0, -1],  // Northwest
-        [1, -1]   // Northeast
-      ];
-      
-      // Start at the "northeast" corner of the ring
-      let q = ring;
-      let r = -ring;
-      
-      // Walk around the ring in 6 directions
-      for (let direction = 0; direction < 6; direction++) {
-        const [dq, dr] = directions[direction];
-        
-        // Walk along each edge of the hexagon
-        for (let step = 0; step < ring; step++) {
-          // Convert axial coordinates to pixel coordinates for pointy-topped hexagons
-          // Grid positioning formula: x = col * (√3 * radius) + (row % 2) * (√3/2 * radius)
-          // y = row * (1.5 * radius)
-          const x = horizontalSpacing * (q + r * 0.5);
-          const y = verticalSpacing * r;
-          
-          hexagons.push({
-            x,
-            y,
-            ring,
-            index,
-            q,
-            r,
-            path: generateHexagonPath(x, y, radius)
-          });
-          
-          index++;
-          
-          // Move to next position along current edge
-          q += dq;
-          r += dr;
-        }
-      }
-    }
-    
-    return hexagons;
-  }, [hexagonSize]); // Only depend on hexagonSize, not spacing
+    return hexagonPaths;
+  }, []); // No dependencies - static data
 
-  // Calculate SVG viewBox dimensions
+  // Use exact viewBox dimensions from filled.svg
   const viewBoxDimensions = useMemo(() => {
-    if (ringCount === 0) {
-      const size = hexagonSize * 2.5;
-      return {
-        width: size,
-        height: size,
-        viewBox: `-${size/2} -${size/2} ${size} ${size}`
-      };
-    }
-    
-    const radius = hexagonSize;
-    const horizontalSpacing = Math.sqrt(3) * radius + spacing;
-    const verticalSpacing = 1.5 * radius + spacing;
-    
-    // Calculate bounds based on outermost ring
-    const maxHorizontalDistance = ringCount * horizontalSpacing + radius;
-    const maxVerticalDistance = ringCount * verticalSpacing + radius;
-    
-    const width = maxHorizontalDistance * 2 + 20; // Add padding
-    const height = maxVerticalDistance * 2 + 20;
-    
     return {
-      width: Math.max(width, height),
-      height: Math.max(width, height),
-      viewBox: `-${width/2} -${height/2} ${width} ${height}`
+      width: 1260,
+      height: 1144,
+      viewBox: "0 0 1260 1144"
     };
-  }, [ringCount, hexagonSize, spacing]);
+  }, []);
 
   const gridClasses = clsx(
     styles.hexagonGrid,
-    {
-      [styles.singleHexagon]: ringCount === 0,
-      [styles.expandedGrid]: ringCount > 0,
-    },
+    styles.expandedGrid, // Always use expanded grid style
     className
   );
 
@@ -270,8 +189,6 @@ export const HexagonGrid = memo<HexagonGridProps>(({
               1: 0.95,  // Ring 1: 95% base probability
               2: 0.75,  // Ring 2: 75% base probability
               3: 0.50,  // Ring 3: 50% base probability
-              4: 0.25,  // Ring 4: 25% base probability
-              5: 0.10   // Ring 5: 10% base probability
             };
             
             const baseProbability = baseRingProbabilities[hexagon.ring] || 0;
@@ -298,14 +215,14 @@ export const HexagonGrid = memo<HexagonGridProps>(({
 
           return (
             <path
-              key={`r${hexagon.ring}-i${hexagon.index}-q${hexagon.q}r${hexagon.r}`}
+              key={`r${hexagon.ring}-i${hexagon.index}`}
               d={hexagon.path}
               className={styles.hexagon}
               fill="var(--color-bg-primary)"
               stroke="none"
               filter={getVisibilityFilter()}
               data-ring={hexagon.ring}
-              data-grid-position={`${hexagon.x},${hexagon.y}`}
+              data-index={hexagon.index}
             />
           );
         })}

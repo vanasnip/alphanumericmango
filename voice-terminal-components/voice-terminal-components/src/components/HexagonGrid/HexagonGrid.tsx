@@ -1,5 +1,5 @@
-import React, { memo, useMemo } from 'react';
 import clsx from 'clsx';
+import React, { memo, useMemo } from 'react';
 import styles from './HexagonGrid.module.css';
 
 export interface HexagonGridProps {
@@ -89,6 +89,8 @@ export const HexagonGrid = memo<HexagonGridProps>(({
   animationSpeed = 1,
   size = 200, // Default size of 200px
 }) => {
+  // Blur multiplier for easy shadow softening - increase for softer shadows
+  const blurMultiplier = 1.1; // Adjust between 0.5 (sharper) to 2.0 (softer)
   /*
    * AMPLITUDE-PROBABILITY MAPPING SYSTEM:
    * 
@@ -142,27 +144,62 @@ export const HexagonGrid = memo<HexagonGridProps>(({
     return [
       // Depression filter - stronger contrast with dark initial shadow fading to gradient
       <filter key="shadow-depression" id="shadow-depression" x="-50%" y="-50%" width="200%" height="200%">
-        <feDropShadow dx="-2" dy="-2" stdDeviation="2" floodOpacity="0.7" floodColor="rgba(0,0,0,1)" />
-        <feDropShadow dx="-4" dy="-4" stdDeviation="12" floodOpacity="0.4" floodColor="rgba(0,0,0,0.9)" />
-        <feDropShadow dx="3" dy="3" stdDeviation="8" floodOpacity="0.9" floodColor="white" />
+        {/* Edge detection and subtle stroke */}
+        <feMorphology in="SourceAlpha" operator="dilate" radius="0.5" result="dilated" />
+        <feGaussianBlur in="dilated" stdDeviation="0.5" result="blurredOutline" />
+        <feColorMatrix in="blurredOutline" type="matrix" result="darkStroke"
+          values="0 0 0 0 0
+                  0 0 0 0 0
+                  0 0 0 0 0
+                  0 0 0 0.1 0" />
+        <feMerge result="withStroke">
+          <feMergeNode in="darkStroke" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+        {/* Original shadows on stroked shape */}
+        <feDropShadow in="withStroke" dx="-2" dy="-2" stdDeviation={2 * blurMultiplier} floodOpacity="0.7" floodColor="rgba(0,0,0,1)" />
+        <feDropShadow dx="-4" dy="-4" stdDeviation={12 * blurMultiplier} floodOpacity="0.4" floodColor="rgba(0,0,0,0.9)" />
+        <feDropShadow dx="3" dy="3" stdDeviation={8 * blurMultiplier} floodOpacity="0.9" floodColor="white" />
       </filter>,
       
       // Extrusion filter - sharper contrast with dark edge
       <filter key="shadow-extrusion" id="shadow-extrusion" x="-50%" y="-50%" width="200%" height="200%">
-        <feDropShadow dx="2" dy="2" stdDeviation="1" floodOpacity="0.6" floodColor="rgba(0,0,0,1)" />
-        <feDropShadow dx="4" dy="4" stdDeviation="10" floodOpacity="0.35" floodColor="rgba(0,0,0,0.8)" />
-        <feDropShadow dx="-2" dy="-2" stdDeviation="6" floodOpacity="0.95" floodColor="white" />
+        {/* White glow stroke for elevated appearance */}
+        <feMorphology in="SourceAlpha" operator="dilate" radius="1" result="dilated" />
+        <feGaussianBlur in="dilated" stdDeviation="2" result="blurredOutline" />
+        <feColorMatrix in="blurredOutline" type="matrix" result="whiteGlow"
+          values="0 0 0 0 1
+                  0 0 0 0 1
+                  0 0 0 0 1
+                  0 0 0 0.3 0" />
+        <feMerge result="withStroke">
+          <feMergeNode in="whiteGlow" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+        {/* Original shadows on stroked shape */}
+        <feDropShadow in="withStroke" dx="2" dy="2" stdDeviation={1 * blurMultiplier} floodOpacity="0.6" floodColor="rgba(0,0,0,1)" />
+        <feDropShadow dx="4" dy="4" stdDeviation={10 * blurMultiplier} floodOpacity="0.35" floodColor="rgba(0,0,0,0.8)" />
+        <feDropShadow dx="-2" dy="-2" stdDeviation={6 * blurMultiplier} floodOpacity="0.95" floodColor="white" />
       </filter>,
       
       // Center crater with inner shadow - deep depression with dark edges
       <filter key="shadow-crater-center" id="shadow-crater-center" x="-50%" y="-50%" width="200%" height="200%">
+        {/* Subtle dark edge stroke for crater */}
+        <feMorphology in="SourceAlpha" operator="dilate" radius="0.5" result="dilated" />
+        <feGaussianBlur in="dilated" stdDeviation="0" result="crispOutline" />
+        <feColorMatrix in="crispOutline" type="matrix" result="darkEdge"
+          values="0 0 0 0 0
+                  0 0 0 0 0
+                  0 0 0 0 0
+                  0 0 0 0.15 0" />
         {/* Inner shadow effect */}
-        <feGaussianBlur in="SourceAlpha" stdDeviation="8" result="blur"/>
+        <feGaussianBlur in="SourceAlpha" stdDeviation={8 * blurMultiplier} result="blur"/>
         <feOffset in="blur" dx="0" dy="0" result="offsetBlur"/>
         <feFlood floodColor="rgba(0,0,0,0.8)" result="color"/>
         <feComposite in="color" in2="offsetBlur" operator="in" result="shadow"/>
         <feComposite in="shadow" in2="SourceAlpha" operator="out" result="innerShadow"/>
         <feMerge>
+          <feMergeNode in="darkEdge"/>
           <feMergeNode in="innerShadow"/>
           <feMergeNode in="SourceGraphic"/>
         </feMerge>
@@ -170,29 +207,64 @@ export const HexagonGrid = memo<HexagonGridProps>(({
       
       // Ring 1 elevated - very strong shadows with high contrast
       <filter key="shadow-rim-elevated" id="shadow-rim-elevated" x="-50%" y="-50%" width="200%" height="200%">
-        <feDropShadow dx="3" dy="3" stdDeviation="1" floodOpacity="0.8" floodColor="rgba(0,0,0,1)" />
-        <feDropShadow dx="6" dy="6" stdDeviation="12" floodOpacity="0.5" floodColor="rgba(0,0,0,0.9)" />
-        <feDropShadow dx="-3" dy="-3" stdDeviation="8" floodOpacity="1" floodColor="white" />
-        <feDropShadow dx="10" dy="10" stdDeviation="20" floodOpacity="0.25" floodColor="rgba(0,0,0,0.7)" />
+        {/* Strong white glow for elevated rim */}
+        <feMorphology in="SourceAlpha" operator="dilate" radius="1.5" result="dilated" />
+        <feGaussianBlur in="dilated" stdDeviation="3" result="blurredOutline" />
+        <feColorMatrix in="blurredOutline" type="matrix" result="whiteGlow"
+          values="0 0 0 0 1
+                  0 0 0 0 1
+                  0 0 0 0 1
+                  0 0 0 0.4 0" />
+        <feMerge result="withStroke">
+          <feMergeNode in="whiteGlow" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+        {/* Original shadows on stroked shape */}
+        <feDropShadow in="withStroke" dx="3" dy="3" stdDeviation={1 * blurMultiplier} floodOpacity="0.8" floodColor="rgba(0,0,0,1)" />
+        <feDropShadow dx="6" dy="6" stdDeviation={12 * blurMultiplier} floodOpacity="0.5" floodColor="rgba(0,0,0,0.9)" />
+        <feDropShadow dx="-3" dy="-3" stdDeviation={8 * blurMultiplier} floodOpacity="1" floodColor="white" />
+        <feDropShadow dx="10" dy="10" stdDeviation={20 * blurMultiplier} floodOpacity="0.25" floodColor="rgba(0,0,0,0.7)" />
       </filter>,
       
       // Ring 1 elevated variant - slightly different height for variation
       <filter key="shadow-rim-elevated-high" id="shadow-rim-elevated-high" x="-50%" y="-50%" width="200%" height="200%">
-        <feDropShadow dx="4" dy="4" stdDeviation="1" floodOpacity="0.85" floodColor="rgba(0,0,0,1)" />
-        <feDropShadow dx="8" dy="8" stdDeviation="14" floodOpacity="0.55" floodColor="rgba(0,0,0,0.9)" />
-        <feDropShadow dx="-4" dy="-4" stdDeviation="10" floodOpacity="1" floodColor="white" />
+        {/* Extra strong white glow for highest elevation */}
+        <feMorphology in="SourceAlpha" operator="dilate" radius="2" result="dilated" />
+        <feGaussianBlur in="dilated" stdDeviation="4" result="blurredOutline" />
+        <feColorMatrix in="blurredOutline" type="matrix" result="whiteGlow"
+          values="0 0 0 0 1
+                  0 0 0 0 1
+                  0 0 0 0 1
+                  0 0 0 0.5 0" />
+        <feMerge result="withStroke">
+          <feMergeNode in="whiteGlow" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+        {/* Original shadows on stroked shape */}
+        <feDropShadow in="withStroke" dx="4" dy="4" stdDeviation={1 * blurMultiplier} floodOpacity="0.85" floodColor="rgba(0,0,0,1)" />
+        <feDropShadow dx="8" dy="8" stdDeviation={14 * blurMultiplier} floodOpacity="0.55" floodColor="rgba(0,0,0,0.9)" />
+        <feDropShadow dx="-4" dy="-4" stdDeviation={10 * blurMultiplier} floodOpacity="1" floodColor="white" />
       </filter>,
       
       // Deep hole with inner shadow - appears punched through the paper
       <filter key="shadow-hole-deep" id="shadow-hole-deep" x="-50%" y="-50%" width="200%" height="200%">
+        {/* Strong dark edge stroke for hole depth */}
+        <feMorphology in="SourceAlpha" operator="dilate" radius="1" result="dilated" />
+        <feGaussianBlur in="dilated" stdDeviation="1" result="blurredOutline" />
+        <feColorMatrix in="blurredOutline" type="matrix" result="darkStroke"
+          values="0 0 0 0 0
+                  0 0 0 0 0
+                  0 0 0 0 0
+                  0 0 0 0.25 0" />
         {/* Strong inner shadow for hole effect */}
-        <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur"/>
+        <feGaussianBlur in="SourceAlpha" stdDeviation={4 * blurMultiplier} result="blur"/>
         <feOffset in="blur" dx="2" dy="2" result="offsetBlur"/>
         <feFlood floodColor="rgba(0,0,0,0.9)" result="color"/>
         <feComposite in="color" in2="offsetBlur" operator="in" result="shadow"/>
         <feComposite in="shadow" in2="SourceAlpha" operator="out" result="innerShadow"/>
-        <feDropShadow dx="-1" dy="-1" stdDeviation="2" floodOpacity="0.3" floodColor="white" />
+        <feDropShadow dx="-1" dy="-1" stdDeviation={2 * blurMultiplier} floodOpacity="0.3" floodColor="white" />
         <feMerge>
+          <feMergeNode in="darkStroke"/>
           <feMergeNode in="innerShadow"/>
           <feMergeNode in="SourceGraphic"/>
         </feMerge>
@@ -200,12 +272,22 @@ export const HexagonGrid = memo<HexagonGridProps>(({
       
       // Medium hole - less pronounced inner shadow
       <filter key="shadow-hole-medium" id="shadow-hole-medium" x="-50%" y="-50%" width="200%" height="200%">
-        <feGaussianBlur in="SourceAlpha" stdDeviation="6" result="blur"/>
+        {/* Moderate dark edge stroke */}
+        <feMorphology in="SourceAlpha" operator="dilate" radius="0.75" result="dilated" />
+        <feGaussianBlur in="dilated" stdDeviation="0.75" result="blurredOutline" />
+        <feColorMatrix in="blurredOutline" type="matrix" result="darkStroke"
+          values="0 0 0 0 0
+                  0 0 0 0 0
+                  0 0 0 0 0
+                  0 0 0 0.18 0" />
+        {/* Medium inner shadow */}
+        <feGaussianBlur in="SourceAlpha" stdDeviation={6 * blurMultiplier} result="blur"/>
         <feOffset in="blur" dx="0" dy="0" result="offsetBlur"/>
         <feFlood floodColor="rgba(0,0,0,0.6)" result="color"/>
         <feComposite in="color" in2="offsetBlur" operator="in" result="shadow"/>
         <feComposite in="shadow" in2="SourceAlpha" operator="out" result="innerShadow"/>
         <feMerge>
+          <feMergeNode in="darkStroke"/>
           <feMergeNode in="innerShadow"/>
           <feMergeNode in="SourceGraphic"/>
         </feMerge>
@@ -213,8 +295,21 @@ export const HexagonGrid = memo<HexagonGridProps>(({
       
       // Faint filter - subtle shadow
       <filter key="shadow-faint" id="shadow-faint" x="-50%" y="-50%" width="200%" height="200%">
-        <feDropShadow dx="-2" dy="-2" stdDeviation="8" floodOpacity="0.15" floodColor="rgba(0,0,0,0.8)" />
-        <feDropShadow dx="2" dy="2" stdDeviation="7" floodOpacity="0.25" floodColor="white" />
+        {/* Very subtle edge definition */}
+        <feMorphology in="SourceAlpha" operator="dilate" radius="0.25" result="dilated" />
+        <feGaussianBlur in="dilated" stdDeviation="0.5" result="blurredOutline" />
+        <feColorMatrix in="blurredOutline" type="matrix" result="subtleEdge"
+          values="0 0 0 0 0
+                  0 0 0 0 0
+                  0 0 0 0 0
+                  0 0 0 0.05 0" />
+        <feMerge result="withStroke">
+          <feMergeNode in="subtleEdge" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+        {/* Original subtle shadows */}
+        <feDropShadow in="withStroke" dx="-2" dy="-2" stdDeviation={8 * blurMultiplier} floodOpacity="0.15" floodColor="rgba(0,0,0,0.8)" />
+        <feDropShadow dx="2" dy="2" stdDeviation={7 * blurMultiplier} floodOpacity="0.25" floodColor="white" />
       </filter>
     ];
   };

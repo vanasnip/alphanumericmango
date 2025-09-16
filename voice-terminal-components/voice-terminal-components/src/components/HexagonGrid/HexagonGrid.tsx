@@ -29,53 +29,53 @@ interface HexagonData {
   index: number;
 }
 
-// Exact hexagon paths from filled.svg organized by ring distance from center
-// Center is approximately at (630, 364) based on the SVG layout
+// Exact hexagon paths reorganized based on hexagonGrid.svg ring structure
+// Center is at (630, 468) - the actual center hexagon
 const hexagonPaths: HexagonData[] = [
-  // Ring 0 - Center hexagon
-  { path: "M630 156L720 208V312L630 364L540 312V208L630 156Z", ring: 0, index: 0 },
+  // Ring 0 - Center hexagon (from hexagonGrid.svg id="center")
+  { path: "M630 468L720 520V624L630 676L540 624V520L630 468Z", ring: 0, index: 0 },
   
-  // Ring 1 - 6 hexagons around center
+  // Ring 1 - 6 hexagons around center (from hexagonGrid.svg id="first_ring")
   { path: "M720 312L810 364V468L720 520L630 468V364L720 312Z", ring: 1, index: 0 },
   { path: "M540 312L630 364V468L540 520L450 468V364L540 312Z", ring: 1, index: 1 },
-  { path: "M450 364L540 312V208L450 156L360 208V312L450 364Z", ring: 1, index: 2 },
-  { path: "M540 208L630 156V52L540 -1.01328e-05L450 52V156L540 208Z", ring: 1, index: 3 },
-  { path: "M720 208L810 156V52L720 -1.01328e-05L630 52V156L720 208Z", ring: 1, index: 4 },
-  { path: "M810 156L900 208V312L810 364L720 312V208L810 156Z", ring: 1, index: 5 },
+  { path: "M450 468L540 520V624L450 676L360 624V520L450 468Z", ring: 1, index: 2 },
+  { path: "M540 624L630 676V780L540 832L450 780V676L540 624Z", ring: 1, index: 3 },
+  { path: "M810 468L900 520V624L810 676L720 624V520L810 468Z", ring: 1, index: 4 },
+  { path: "M720 624L810 676V780L720 832L630 780V676L720 624Z", ring: 1, index: 5 },
   
-  // Ring 2 - 12 hexagons in second ring
-  { path: "M900 312L990 364V468L900 520L810 468V364L900 312Z", ring: 2, index: 0 },
-  { path: "M810 468L900 520V624L810 676L720 624V520L810 468Z", ring: 2, index: 1 },
-  { path: "M630 468L720 520V624L630 676L540 624V520L630 468Z", ring: 2, index: 2 },
-  { path: "M450 468L540 520V624L450 676L360 624V520L450 468Z", ring: 2, index: 3 },
-  { path: "M360 312L450 364V468L360 520L270 468V364L360 312Z", ring: 2, index: 4 },
-  { path: "M270 364L360 312V208L270 156L180 208V312L270 364Z", ring: 2, index: 5 },
-  { path: "M360 208L450 156V52L360 -1.01328e-05L270 52V156L360 208Z", ring: 2, index: 6 },
-  { path: "M900 208L990 156V52L900 -1.01328e-05L810 52V156L900 208Z", ring: 2, index: 7 },
-  { path: "M1080 312L1170 364V468L1080 520L990 468V364L1080 312Z", ring: 2, index: 8 },
-  { path: "M990 364L1080 312V208L990 156L900 208V312L990 364Z", ring: 2, index: 9 },
-  { path: "M720 624L810 676V780L720 832L630 780V676L720 624Z", ring: 2, index: 10 },
-  { path: "M540 624L630 676V780L540 832L450 780V676L540 624Z", ring: 2, index: 11 },
+  // Ring 2 - 12 hexagons (from hexagonGrid.svg id="second_ring")
+  { path: "M990 468L1080 520V624L990 676L900 624V520L990 468Z", ring: 2, index: 0 },
+  { path: "M360 312L450 364V468L360 520L270 468V364L360 312Z", ring: 2, index: 1 },
+  { path: "M360 624L450 676V780L360 832L270 780V676L360 624Z", ring: 2, index: 2 },
+  { path: "M450 780L540 832V936L450 988L360 936V832L450 780Z", ring: 2, index: 3 },
+  { path: "M630 156L720 208V312L630 364L540 312V208L630 156Z", ring: 2, index: 4 },
+  { path: "M900 624L990 676V780L900 832L810 780V676L900 624Z", ring: 2, index: 5 },
+  { path: "M810 780L900 832V936L810 988L720 936V832L810 780Z", ring: 2, index: 6 },
+  { path: "M630 780L720 832V936L630 988L540 936V832L630 780Z", ring: 2, index: 7 },
+  { path: "M270 676L360 624V520L270 468L180 520V624L270 676Z", ring: 2, index: 8 },
+  { path: "M450 364L540 312V208L450 156L360 208V312L450 364Z", ring: 2, index: 9 },
+  { path: "M810 156L900 208V312L810 364L720 312V208L810 156Z", ring: 2, index: 10 },
+  { path: "M900 312L990 364V468L900 520L810 468V364L900 312Z", ring: 2, index: 11 },
   
-  // Ring 3 - 18 hexagons in third ring
-  { path: "M990 468L1080 520V624L990 676L900 624V520L990 468Z", ring: 3, index: 0 },
-  { path: "M900 624L990 676V780L900 832L810 780V676L900 624Z", ring: 3, index: 1 },
-  { path: "M810 780L900 832V936L810 988L720 936V832L810 780Z", ring: 3, index: 2 },
-  { path: "M630 780L720 832V936L630 988L540 936V832L630 780Z", ring: 3, index: 3 },
-  { path: "M450 780L540 832V936L450 988L360 936V832L450 780Z", ring: 3, index: 4 },
-  { path: "M360 624L450 676V780L360 832L270 780V676L360 624Z", ring: 3, index: 5 },
-  { path: "M270 676L360 624V520L270 468L180 520V624L270 676Z", ring: 3, index: 6 },
-  { path: "M180 520L270 468V364L180 312L90 364V468L180 520Z", ring: 3, index: 7 },
-  { path: "M1170 468L1260 520V624L1170 676L1080 624V520L1170 468Z", ring: 3, index: 8 },
-  { path: "M1080 832L1170 780V676L1080 624L990 676V780L1080 832Z", ring: 3, index: 9 },
-  { path: "M990 780L1080 832V936L990 988L900 936V832L990 780Z", ring: 3, index: 10 },
-  { path: "M900 936L990 988V1092L900 1144L810 1092V988L900 936Z", ring: 3, index: 11 },
-  { path: "M720 936L810 988V1092L720 1144L630 1092V988L720 936Z", ring: 3, index: 12 },
-  { path: "M540 936L630 988V1092L540 1144L450 1092V988L540 936Z", ring: 3, index: 13 },
-  { path: "M360 936L450 988V1092L360 1144L270 1092V988L360 936Z", ring: 3, index: 14 },
-  { path: "M270 780L360 832V936L270 988L180 936V832L270 780Z", ring: 3, index: 15 },
-  { path: "M180 624L270 676V780L180 832L90 780V676L180 624Z", ring: 3, index: 16 },
-  { path: "M90 676L180 624V520L90 468L0 520V624L90 676Z", ring: 3, index: 17 }
+  // Ring 3 - Outer ring hexagons (from hexagonGrid.svg id="outer_ring") 
+  { path: "M1170 468L1260 520V624L1170 676L1080 624V520L1170 468Z", ring: 3, index: 0 },
+  { path: "M1080 312L1170 364V468L1080 520L990 468V364L1080 312Z", ring: 3, index: 1 },
+  { path: "M360 208L450 156V52L360 -1.01328e-05L270 52V156L360 208Z", ring: 3, index: 2 },
+  { path: "M270 364L360 312V208L270 156L180 208V312L270 364Z", ring: 3, index: 3 },
+  { path: "M90 676L180 624V520L90 468L0 520V624L90 676Z", ring: 3, index: 4 },
+  { path: "M180 520L270 468V364L180 312L90 364V468L180 520Z", ring: 3, index: 5 },
+  { path: "M990 364L1080 312V208L990 156L900 208V312L990 364Z", ring: 3, index: 6 },
+  { path: "M540 208L630 156V52L540 -1.01328e-05L450 52V156L540 208Z", ring: 3, index: 7 },
+  { path: "M900 208L990 156V52L900 -1.01328e-05L810 52V156L900 208Z", ring: 3, index: 8 },
+  { path: "M720 208L810 156V52L720 -1.01328e-05L630 52V156L720 208Z", ring: 3, index: 9 },
+  { path: "M1080 832L1170 780V676L1080 624L990 676V780L1080 832Z", ring: 3, index: 10 },
+  { path: "M360 936L450 988V1092L360 1144L270 1092V988L360 936Z", ring: 3, index: 11 },
+  { path: "M270 780L360 832V936L270 988L180 936V832L270 780Z", ring: 3, index: 12 },
+  { path: "M180 624L270 676V780L180 832L90 780V676L180 624Z", ring: 3, index: 13 },
+  { path: "M990 780L1080 832V936L990 988L900 936V832L990 780Z", ring: 3, index: 14 },
+  { path: "M540 936L630 988V1092L540 1144L450 1092V988L540 936Z", ring: 3, index: 15 },
+  { path: "M900 936L990 988V1092L900 1144L810 1092V988L900 936Z", ring: 3, index: 16 },
+  { path: "M720 936L810 988V1092L720 1144L630 1092V988L720 936Z", ring: 3, index: 17 }
 ];
 
 export const HexagonGrid = memo<HexagonGridProps>(({
@@ -140,36 +140,53 @@ export const HexagonGrid = memo<HexagonGridProps>(({
   // Generate shadow filters for different visibility states and topology variations
   const generateShadowFilters = () => {
     return [
-      // Depression filter - inverted shadow (appears pressed into paper) with gradient spread
+      // Depression filter - stronger contrast with dark initial shadow fading to gradient
       <filter key="shadow-depression" id="shadow-depression" x="-50%" y="-50%" width="200%" height="200%">
-        <feDropShadow dx="-3" dy="-3" stdDeviation="10" floodOpacity="0.35" floodColor="rgba(0,0,0,0.9)" />
-        <feDropShadow dx="3" dy="3" stdDeviation="8" floodOpacity="0.8" floodColor="white" />
+        <feDropShadow dx="-2" dy="-2" stdDeviation="2" floodOpacity="0.7" floodColor="rgba(0,0,0,1)" />
+        <feDropShadow dx="-4" dy="-4" stdDeviation="12" floodOpacity="0.4" floodColor="rgba(0,0,0,0.9)" />
+        <feDropShadow dx="3" dy="3" stdDeviation="8" floodOpacity="0.9" floodColor="white" />
       </filter>,
       
-      // Extrusion filter - normal shadow (appears raised from paper) with gradient spread
+      // Extrusion filter - sharper contrast with dark edge
       <filter key="shadow-extrusion" id="shadow-extrusion" x="-50%" y="-50%" width="200%" height="200%">
-        <feDropShadow dx="3" dy="3" stdDeviation="9" floodOpacity="0.3" floodColor="rgba(0,0,0,0.8)" />
-        <feDropShadow dx="-2" dy="-2" stdDeviation="8" floodOpacity="0.85" floodColor="white" />
+        <feDropShadow dx="2" dy="2" stdDeviation="1" floodOpacity="0.6" floodColor="rgba(0,0,0,1)" />
+        <feDropShadow dx="4" dy="4" stdDeviation="10" floodOpacity="0.35" floodColor="rgba(0,0,0,0.8)" />
+        <feDropShadow dx="-2" dy="-2" stdDeviation="6" floodOpacity="0.95" floodColor="white" />
       </filter>,
       
-      // Deep crater filter - for center hexagon with wide gradient spread
+      // Center crater with inner shadow - deep depression with dark edges
       <filter key="shadow-crater-center" id="shadow-crater-center" x="-50%" y="-50%" width="200%" height="200%">
-        <feDropShadow dx="-5" dy="-5" stdDeviation="12" floodOpacity="0.45" floodColor="rgba(0,0,0,0.95)" />
-        <feDropShadow dx="6" dy="6" stdDeviation="10" floodOpacity="0.9" floodColor="white" />
-        <feDropShadow dx="-2" dy="-2" stdDeviation="20" floodOpacity="0.2" floodColor="rgba(0,0,0,0.8)" />
+        {/* Inner shadow effect */}
+        <feGaussianBlur in="SourceAlpha" stdDeviation="8" result="blur"/>
+        <feOffset in="blur" dx="0" dy="0" result="offsetBlur"/>
+        <feFlood floodColor="rgba(0,0,0,0.8)" result="color"/>
+        <feComposite in="color" in2="offsetBlur" operator="in" result="shadow"/>
+        <feComposite in="shadow" in2="SourceAlpha" operator="out" result="innerShadow"/>
+        <feMerge>
+          <feMergeNode in="innerShadow"/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
       </filter>,
       
-      // Elevated rim filter - for ring 1 with gradient spread
+      // Ring 1 elevated - very strong shadows with high contrast
       <filter key="shadow-rim-elevated" id="shadow-rim-elevated" x="-50%" y="-50%" width="200%" height="200%">
-        <feDropShadow dx="4" dy="4" stdDeviation="10" floodOpacity="0.35" floodColor="rgba(0,0,0,0.85)" />
-        <feDropShadow dx="-3" dy="-3" stdDeviation="9" floodOpacity="0.85" floodColor="white" />
-        <feDropShadow dx="2" dy="2" stdDeviation="15" floodOpacity="0.15" floodColor="rgba(0,0,0,0.7)" />
+        <feDropShadow dx="3" dy="3" stdDeviation="1" floodOpacity="0.8" floodColor="rgba(0,0,0,1)" />
+        <feDropShadow dx="6" dy="6" stdDeviation="12" floodOpacity="0.5" floodColor="rgba(0,0,0,0.9)" />
+        <feDropShadow dx="-3" dy="-3" stdDeviation="8" floodOpacity="1" floodColor="white" />
+        <feDropShadow dx="10" dy="10" stdDeviation="20" floodOpacity="0.25" floodColor="rgba(0,0,0,0.7)" />
       </filter>,
       
-      // Faint filter - very subtle shadow with soft gradient
+      // Ring 1 elevated variant - slightly different height for variation
+      <filter key="shadow-rim-elevated-high" id="shadow-rim-elevated-high" x="-50%" y="-50%" width="200%" height="200%">
+        <feDropShadow dx="4" dy="4" stdDeviation="1" floodOpacity="0.85" floodColor="rgba(0,0,0,1)" />
+        <feDropShadow dx="8" dy="8" stdDeviation="14" floodOpacity="0.55" floodColor="rgba(0,0,0,0.9)" />
+        <feDropShadow dx="-4" dy="-4" stdDeviation="10" floodOpacity="1" floodColor="white" />
+      </filter>,
+      
+      // Faint filter - subtle shadow
       <filter key="shadow-faint" id="shadow-faint" x="-50%" y="-50%" width="200%" height="200%">
-        <feDropShadow dx="-2" dy="-2" stdDeviation="8" floodOpacity="0.1" floodColor="rgba(0,0,0,0.8)" />
-        <feDropShadow dx="2" dy="2" stdDeviation="7" floodOpacity="0.2" floodColor="white" />
+        <feDropShadow dx="-2" dy="-2" stdDeviation="8" floodOpacity="0.15" floodColor="rgba(0,0,0,0.8)" />
+        <feDropShadow dx="2" dy="2" stdDeviation="7" floodOpacity="0.25" floodColor="white" />
       </filter>
     ];
   };
@@ -191,7 +208,14 @@ export const HexagonGrid = memo<HexagonGridProps>(({
           {generateShadowFilters()}
         </defs>
         
-        {hexagonData.map((hexagon, index) => {
+        {/* Render hexagons in layer order: center (bottom) → outer → second → first (top) */}
+        {hexagonData
+          .sort((a, b) => {
+            // Sort by ring: 0 (center) → 3 (outer) → 2 (second) → 1 (first)
+            const ringOrder = { 0: 0, 3: 1, 2: 2, 1: 3 };
+            return (ringOrder[a.ring] || 0) - (ringOrder[b.ring] || 0);
+          })
+          .map((hexagon, index) => {
           // Determine visibility based on amplitude and ring-based probability system
           const getVisibilityFilter = (): string => {
             // Quiet state: center as crater, ring 1 with faint shadow
@@ -226,10 +250,15 @@ export const HexagonGrid = memo<HexagonGridProps>(({
               return 'url(#shadow-crater-center)'; // Deep depression in center
             }
             
-            // Ring 1 forms the elevated rim around the crater (mostly raised)
+            // Ring 1 forms the elevated rim with height variations for contrast
             if (hexagon.ring === 1) {
-              // 80% chance of being elevated (rim), 20% chance of slight variation
-              return Math.random() > 0.2 ? 'url(#shadow-rim-elevated)' : 'url(#shadow-extrusion)';
+              // Vary heights within ring 1 for more dramatic contrast
+              const variation = Math.random();
+              if (variation > 0.6) {
+                return 'url(#shadow-rim-elevated-high)'; // 40% highest elevation
+              } else {
+                return 'url(#shadow-rim-elevated)'; // 60% normal elevation
+              }
             }
             
             // For very quiet state (low amplitude), outer rings get subtle shadows
@@ -237,9 +266,25 @@ export const HexagonGrid = memo<HexagonGridProps>(({
               return 'url(#shadow-faint)';
             }
             
-            // Outer rings (2+): mixed topology with slight bias toward depression
-            // This creates a gradual slope down from the rim
-            return Math.random() > 0.4 ? 'url(#shadow-depression)' : 'url(#shadow-extrusion)';
+            // Ring 2: More dramatic variations in height
+            if (hexagon.ring === 2) {
+              const variation = Math.random();
+              if (variation > 0.7) {
+                return 'url(#shadow-extrusion)'; // 30% raised
+              } else {
+                return 'url(#shadow-depression)'; // 70% depressed
+              }
+            }
+            
+            // Ring 3 (outer): Strong variations for dramatic landscape
+            const outerVariation = Math.random();
+            if (outerVariation > 0.8) {
+              return 'url(#shadow-rim-elevated)'; // 20% strongly raised
+            } else if (outerVariation > 0.4) {
+              return 'url(#shadow-depression)'; // 40% depressed
+            } else {
+              return 'url(#shadow-extrusion)'; // 40% slightly raised
+            }
           };
 
           return (

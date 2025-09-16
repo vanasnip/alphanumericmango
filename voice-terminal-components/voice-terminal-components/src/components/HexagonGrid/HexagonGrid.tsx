@@ -31,19 +31,17 @@ interface HexagonData {
   path: string; // SVG path for this hexagon
 }
 
-// Generate SVG path for a flat-topped hexagon centered at (x, y) with given radius
-// Using correct flat-topped hexagon math with vertices at 30° intervals from top
+// Generate SVG path for a pointy-topped hexagon centered at (x, y) with given radius
+// Using correct pointy-topped hexagon math for perfect tessellation
 const generateHexagonPath = (x: number, y: number, radius: number): string => {
   const points: [number, number][] = [];
   
-  // Generate 6 points for flat-topped hexagon with vertices at 30° intervals starting from top
-  // Angles: [30, 90, 150, 210, 270, 330] degrees
-  const angles = [30, 90, 150, 210, 270, 330];
-  
-  for (const angleDeg of angles) {
-    const angle = (angleDeg * Math.PI) / 180;
+  // Generate 6 points for pointy-topped hexagon starting at 90° (top), going clockwise
+  // For pointy-topped: vertices are at angles where the hexagon has points at top and bottom
+  for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI / 2) - (i * Math.PI / 3); // Start at 90°, go clockwise
     const px = x + radius * Math.cos(angle);
-    const py = y + radius * Math.sin(angle);
+    const py = y - radius * Math.sin(angle); // Negative because SVG Y increases downward
     points.push([px, py]);
   }
   
@@ -95,17 +93,17 @@ export const HexagonGrid = memo<HexagonGridProps>(({
    * - Maintains paper-like aesthetic with varied shadows
    */
 
-  // Calculate hexagon positions using correct flat-topped hexagon tessellation math
+  // Calculate hexagon positions using correct pointy-topped hexagon tessellation math
   const hexagonData = useMemo((): HexagonData[] => {
     const hexagons: HexagonData[] = [];
     
-    // Fixed hexagon geometry for perfect tessellation (flat-topped orientation)
+    // Fixed hexagon geometry for perfect tessellation (pointy-topped orientation)
     // For hexagons to touch edge-to-edge (perfect honeycomb):
-    // - horizontalSpacing = 1.5 * radius (distance between centers horizontally)
-    // - verticalSpacing = sqrt(3) * radius (distance between row centers vertically)
+    // - horizontalSpacing = √3 * radius (distance between centers horizontally)
+    // - verticalSpacing = 1.5 * radius (distance between row centers vertically)
     const radius = hexagonSize;
-    const horizontalSpacing = 1.5 * radius; // NO spacing parameter - always touching
-    const verticalSpacing = Math.sqrt(3) * radius; // NO spacing parameter - always touching
+    const horizontalSpacing = Math.sqrt(3) * radius; // NO spacing parameter - always touching
+    const verticalSpacing = 1.5 * radius; // NO spacing parameter - always touching
     
     // Center hexagon (q=0, r=0)
     const centerX = 0;
@@ -145,9 +143,11 @@ export const HexagonGrid = memo<HexagonGridProps>(({
         
         // Walk along each edge of the hexagon
         for (let step = 0; step < ring; step++) {
-          // Convert axial coordinates to pixel coordinates for flat-topped hexagons
-          const x = horizontalSpacing * q;
-          const y = verticalSpacing * (r + q * 0.5);
+          // Convert axial coordinates to pixel coordinates for pointy-topped hexagons
+          // Grid positioning formula: x = col * (√3 * radius) + (row % 2) * (√3/2 * radius)
+          // y = row * (1.5 * radius)
+          const x = horizontalSpacing * (q + r * 0.5);
+          const y = verticalSpacing * r;
           
           hexagons.push({
             x,
@@ -183,8 +183,8 @@ export const HexagonGrid = memo<HexagonGridProps>(({
     }
     
     const radius = hexagonSize;
-    const horizontalSpacing = 1.5 * radius + spacing;
-    const verticalSpacing = Math.sqrt(3) * radius + spacing;
+    const horizontalSpacing = Math.sqrt(3) * radius + spacing;
+    const verticalSpacing = 1.5 * radius + spacing;
     
     // Calculate bounds based on outermost ring
     const maxHorizontalDistance = ringCount * horizontalSpacing + radius;

@@ -56,10 +56,14 @@ export const HexagonGrid = memo<HexagonGridProps>(({
     const positions: HexagonPosition[] = [];
     
     // Hexagon geometry for flat-topped orientation
-    const hexWidth = hexagonSize * 2;
-    const hexHeight = hexagonSize * Math.sqrt(3);
-    const horizontalSpacing = hexWidth * 0.75;
-    const verticalSpacing = hexHeight;
+    // For flat-topped hexagons to touch edge-to-edge (spacing = 0):
+    // - baseHorizontalSpacing = 1.5 * hexagonSize (distance between centers)  
+    // - baseVerticalSpacing = sqrt(3) * hexagonSize (distance between row centers)
+    // Add spacing prop to create gaps between hexagons
+    const baseHorizontalSpacing = 1.5 * hexagonSize;
+    const baseVerticalSpacing = Math.sqrt(3) * hexagonSize;
+    const horizontalSpacing = baseHorizontalSpacing + spacing;
+    const verticalSpacing = baseVerticalSpacing + spacing;
     
     // Center hexagon (q=0, r=0)
     positions.push({ 
@@ -95,7 +99,9 @@ export const HexagonGrid = memo<HexagonGridProps>(({
         
         // Walk along each edge of the hexagon
         for (let step = 0; step < ring; step++) {
-          // Convert axial coordinates to pixel coordinates
+          // Convert axial coordinates to pixel coordinates for flat-topped hexagons
+          // x = horizontal_spacing * q
+          // y = vertical_spacing * (r + q/2)
           const x = horizontalSpacing * q;
           const y = verticalSpacing * (r + q * 0.5);
           
@@ -118,7 +124,7 @@ export const HexagonGrid = memo<HexagonGridProps>(({
     }
     
     return positions;
-  }, [ringCount, hexagonSize]);
+  }, [ringCount, hexagonSize, spacing]);
 
   // Calculate total hexagons for frequency mapping
   const totalHexagons = hexagonPositions.length;
@@ -127,11 +133,13 @@ export const HexagonGrid = memo<HexagonGridProps>(({
   const containerSize = useMemo(() => {
     if (ringCount === 0) return hexagonSize * 2 + 40; // Single hexagon with padding
     
-    // Calculate based on actual hexagon dimensions
+    // Calculate based on hexagon spacing (including spacing prop)
+    const baseHorizontalSpacing = 1.5 * hexagonSize;
+    const baseVerticalSpacing = Math.sqrt(3) * hexagonSize;
+    const horizontalSpacing = baseHorizontalSpacing + spacing;
+    const verticalSpacing = baseVerticalSpacing + spacing;
     const hexWidth = hexagonSize * 2;
-    const hexHeight = hexagonSize * Math.sqrt(3);
-    const horizontalSpacing = hexWidth * 0.75;
-    const verticalSpacing = hexHeight;
+    const hexHeight = Math.sqrt(3) * hexagonSize;
     
     const maxHorizontalDistance = ringCount * horizontalSpacing;
     const maxVerticalDistance = ringCount * verticalSpacing;
@@ -140,7 +148,7 @@ export const HexagonGrid = memo<HexagonGridProps>(({
     const height = (maxVerticalDistance * 2) + hexHeight + 40;
     
     return Math.max(width, height);
-  }, [ringCount, hexagonSize]);
+  }, [ringCount, hexagonSize, spacing]);
 
   const gridClasses = clsx(
     styles.hexagonGrid,

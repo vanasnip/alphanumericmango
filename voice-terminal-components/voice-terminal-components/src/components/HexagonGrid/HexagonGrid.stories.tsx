@@ -15,7 +15,8 @@ It starts with a single hexagon at rest and expands to multiple rings based on a
 
 **Features:**
 - Amplitude-based expansion (1 → 7 → 19 → 37 → 61 → 91 hexagons)
-- Connected honeycomb structure with perfect tessellation
+- Connected honeycomb structure with perfect tessellation (spacing=0)
+- True honeycomb pattern when spacing=0, creating touching hexagons
 - Pure shadow-based animations for paper theme compatibility
 - Individual hexagon frequency response
 - Optional project color pulse effects
@@ -59,11 +60,11 @@ It starts with a single hexagon at rest and expands to multiple rings based on a
     spacing: {
       control: { 
         type: 'range', 
-        min: 4, 
+        min: 0, 
         max: 16, 
         step: 2 
       },
-      description: 'Spacing between hexagons in pixels',
+      description: 'Spacing between hexagons in pixels. Set to 0 for touching hexagons (true honeycomb pattern)',
     },
     projectColor: {
       control: { type: 'color' },
@@ -91,7 +92,7 @@ It starts with a single hexagon at rest and expands to multiple rings based on a
     amplitude: 0,
     frequencies: [],
     hexagonSize: 24,
-    spacing: 8,
+    spacing: 0,
     projectColor: colors.projects[0],
     enableColorPulse: false,
     animationSpeed: 1,
@@ -180,6 +181,37 @@ export const MaximumAmplitude: Story = {
   },
 };
 
+// Connected honeycomb patterns
+export const ConnectedHoneycomb: Story = {
+  args: {
+    amplitude: 75,
+    spacing: 0,
+    frequencies: [0.8, 0.6, 0.4, 0.7, 0.5, 0.3, 0.9, 0.2, 0.6, 0.8, 0.4, 0.7, 0.5, 0.3, 0.9, 0.1, 0.6, 0.8, 0.4],
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'True connected honeycomb pattern with spacing=0. This creates touching hexagons that form the authentic honeycomb tessellation structure, matching natural honeycomb geometry.',
+      },
+    },
+  },
+};
+
+export const SpacedHexagons: Story = {
+  args: {
+    amplitude: 75,
+    spacing: 8,
+    frequencies: [0.8, 0.6, 0.4, 0.7, 0.5, 0.3, 0.9, 0.2, 0.6, 0.8, 0.4, 0.7, 0.5, 0.3, 0.9, 0.1, 0.6, 0.8, 0.4],
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Spaced hexagons with spacing=8 for comparison. While visually distinct, this breaks the natural honeycomb tessellation pattern.',
+      },
+    },
+  },
+};
+
 // With frequency data
 export const WithFrequencyData: Story = {
   args: {
@@ -247,7 +279,7 @@ export const LargeHexagons: Story = {
   args: {
     amplitude: 50,
     hexagonSize: 36,
-    spacing: 12,
+    spacing: 0,
   },
   parameters: {
     docs: {
@@ -262,7 +294,7 @@ export const SmallHexagons: Story = {
   args: {
     amplitude: 50,
     hexagonSize: 18,
-    spacing: 6,
+    spacing: 0,
   },
   parameters: {
     docs: {
@@ -310,7 +342,7 @@ export const Playground: Story = {
     amplitude: 50,
     frequencies: [0.6, 0.8, 0.4, 0.7, 0.3, 0.9, 0.5],
     hexagonSize: 24,
-    spacing: 8,
+    spacing: 0,
     enableColorPulse: false,
     projectColor: colors.projects[0],
     animationSpeed: 1,
@@ -338,7 +370,7 @@ export const EdgeCases: Story = {
     amplitude: 100,
     frequencies: [1, 0, 0.5, 1, 0, 0.5, 1, 0, 0.5, 1, 0, 0.5],
     hexagonSize: 32,
-    spacing: 4,
+    spacing: 0,
     enableColorPulse: true,
     projectColor: colors.projects[6], // Red
     animationSpeed: 2,

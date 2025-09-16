@@ -32,12 +32,16 @@ interface HexagonData {
 }
 
 // Generate SVG path for a flat-topped hexagon centered at (x, y) with given radius
+// Using correct flat-topped hexagon math with vertices at 30° intervals from top
 const generateHexagonPath = (x: number, y: number, radius: number): string => {
   const points: [number, number][] = [];
   
-  // Generate 6 points for flat-topped hexagon (starting from top-left, going clockwise)
-  for (let i = 0; i < 6; i++) {
-    const angle = (Math.PI / 3) * i - (Math.PI / 6); // Start at -30° for flat top
+  // Generate 6 points for flat-topped hexagon with vertices at 30° intervals starting from top
+  // Angles: [30, 90, 150, 210, 270, 330] degrees
+  const angles = [30, 90, 150, 210, 270, 330];
+  
+  for (const angleDeg of angles) {
+    const angle = (angleDeg * Math.PI) / 180;
     const px = x + radius * Math.cos(angle);
     const py = y + radius * Math.sin(angle);
     points.push([px, py]);
@@ -64,27 +68,44 @@ export const HexagonGrid = memo<HexagonGridProps>(({
   className,
   animationSpeed = 1,
 }) => {
-  // Calculate number of rings based on amplitude (support up to 5 rings for 91 hexagons total)
-  const ringCount = useMemo(() => {
-    if (amplitude <= 0) return 0; // 1 hexagon (center only)
-    if (amplitude <= 15) return 1; // 7 hexagons total (1 + 6)
-    if (amplitude <= 35) return 2; // 19 hexagons total (1 + 6 + 12)
-    if (amplitude <= 60) return 3; // 37 hexagons total (1 + 6 + 12 + 18)
-    if (amplitude <= 85) return 4; // 61 hexagons total (1 + 6 + 12 + 18 + 24)
-    return 5; // 91 hexagons total (1 + 6 + 12 + 18 + 24 + 30)
-  }, [amplitude]);
+  // ALWAYS render all 91 hexagons (rings 0-5) - visibility controlled by amplitude-probability system
+  const ringCount = 5; // Always generate all 5 rings for static grid
+  
+  /*
+   * AMPLITUDE-PROBABILITY MAPPING SYSTEM:
+   * 
+   * Ring-based base probabilities:
+   * - Ring 0: 100% (center hexagon always visible)
+   * - Ring 1: 95% base probability 
+   * - Ring 2: 75% base probability
+   * - Ring 3: 50% base probability
+   * - Ring 4: 25% base probability  
+   * - Ring 5: 10% base probability
+   * 
+   * Amplitude modulation: adjustedProbability = baseProbability * (amplitude / 50)
+   * - Higher amplitude = higher chance of outer rings appearing
+   * - Creates expansion effect as voice gets louder
+   * 
+   * Random selection: Each hexagon randomly appears based on adjusted probability
+   * - Creates chaotic outer ring effect
+   * - More chaos in outer rings due to lower base probabilities
+   * 
+   * Topological variation: Visible hexagons randomly get depression/extrusion
+   * - Creates varied landscape/terrain effect
+   * - Maintains paper-like aesthetic with varied shadows
+   */
 
-  // Calculate hexagon positions and paths in proper honeycomb pattern
+  // Calculate hexagon positions using correct flat-topped hexagon tessellation math
   const hexagonData = useMemo((): HexagonData[] => {
     const hexagons: HexagonData[] = [];
     
-    // Hexagon geometry for flat-topped orientation
-    // For hexagons to touch edge-to-edge:
+    // Fixed hexagon geometry for perfect tessellation (flat-topped orientation)
+    // For hexagons to touch edge-to-edge (perfect honeycomb):
     // - horizontalSpacing = 1.5 * radius (distance between centers horizontally)
-    // - verticalSpacing = sqrt(3) * radius (distance between row centers)
+    // - verticalSpacing = sqrt(3) * radius (distance between row centers vertically)
     const radius = hexagonSize;
-    const horizontalSpacing = 1.5 * radius + spacing;
-    const verticalSpacing = Math.sqrt(3) * radius + spacing;
+    const horizontalSpacing = 1.5 * radius; // NO spacing parameter - always touching
+    const verticalSpacing = Math.sqrt(3) * radius; // NO spacing parameter - always touching
     
     // Center hexagon (q=0, r=0)
     const centerX = 0;
@@ -148,7 +169,7 @@ export const HexagonGrid = memo<HexagonGridProps>(({
     }
     
     return hexagons;
-  }, [ringCount, hexagonSize, spacing]);
+  }, [hexagonSize]); // Only depend on hexagonSize, not spacing
 
   // Calculate SVG viewBox dimensions
   const viewBoxDimensions = useMemo(() => {
@@ -192,29 +213,27 @@ export const HexagonGrid = memo<HexagonGridProps>(({
     '--animation-speed': animationSpeed,
   } as React.CSSProperties;
 
-  // Generate SVG filter IDs for different shadow intensities
+  // Generate shadow filters for different visibility states and topology variations
   const generateShadowFilters = () => {
-    const filters = [];
-    
-    for (let ring = 0; ring <= 5; ring++) {
-      const intensity = Math.max(0.8 - ring * 0.15, 0.1); // Decreasing intensity per ring
-      const blurRadius = Math.max(4 - ring * 0.5, 1);
+    return [
+      // Depression filter - inverted shadow (appears pressed into paper)
+      <filter key="shadow-depression" id="shadow-depression" x="-50%" y="-50%" width="200%" height="200%">
+        <feDropShadow dx="-2" dy="-2" stdDeviation="3" floodOpacity="0.3" floodColor="rgba(0,0,0,0.8)" />
+        <feDropShadow dx="2" dy="2" stdDeviation="2" floodOpacity="0.7" floodColor="white" />
+      </filter>,
       
-      filters.push(
-        <filter key={`shadow-ring-${ring}`} id={`shadow-ring-${ring}`} x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur in="SourceAlpha" stdDeviation={blurRadius} />
-          <feOffset dx="2" dy="2" result="offset" />
-          <feFlood floodColor="rgba(22, 27, 29, 0.25)" floodOpacity={intensity} />
-          <feComposite in2="offset" operator="in" />
-          <feMerge>
-            <feMergeNode />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-      );
-    }
-    
-    return filters;
+      // Extrusion filter - normal shadow (appears raised from paper) 
+      <filter key="shadow-extrusion" id="shadow-extrusion" x="-50%" y="-50%" width="200%" height="200%">
+        <feDropShadow dx="2" dy="2" stdDeviation="3" floodOpacity="0.2" floodColor="rgba(0,0,0,0.6)" />
+        <feDropShadow dx="-1" dy="-1" stdDeviation="2" floodOpacity="0.8" floodColor="white" />
+      </filter>,
+      
+      // Faint filter - very subtle shadow for quiet state ring 1
+      <filter key="shadow-faint" id="shadow-faint" x="-50%" y="-50%" width="200%" height="200%">
+        <feDropShadow dx="-1" dy="-1" stdDeviation="3" floodOpacity="0.05" floodColor="rgba(0,0,0,0.8)" />
+        <feDropShadow dx="1" dy="1" stdDeviation="2" floodOpacity="0.15" floodColor="white" />
+      </filter>
+    ];
   };
 
   return (
@@ -236,51 +255,57 @@ export const HexagonGrid = memo<HexagonGridProps>(({
         </defs>
         
         {hexagonData.map((hexagon, index) => {
-          // Map frequency data to hexagons
-          const frequency = frequencies[index] || 0;
-          const isActive = true; // Show all hexagons for now
-          
-          // Calculate animation delay based on ring and position
-          const animationDelay = (hexagon.ring * 100 + hexagon.index * 20) / animationSpeed;
-          
-          // Determine fill color based on frequency and active state
-          const getFillColor = () => {
-            if (enableColorPulse && projectColor && frequency > 0.5) {
-              return projectColor;
+          // Determine visibility based on amplitude and ring-based probability system
+          const getVisibilityFilter = (): string => {
+            // Quiet state: only center visible with extrusion, ring 1 with faint shadow
+            if (amplitude <= 0) {
+              if (hexagon.ring === 0) return 'url(#shadow-extrusion)';
+              if (hexagon.ring === 1) return 'url(#shadow-faint)';
+              return 'none'; // invisible
             }
-            return 'var(--color-bg-secondary)';
-          };
-          
-          // Determine stroke for debugging (can be removed later)
-          const getStroke = () => {
-            if (process.env.NODE_ENV === 'development') {
-              return `hsl(${hexagon.ring * 60}, 50%, 50%)`; // Different color per ring
+            
+            // Ring-based base probabilities according to specification
+            const baseRingProbabilities: Record<number, number> = {
+              0: 1.00,  // Ring 0: 100% (always visible)
+              1: 0.95,  // Ring 1: 95% base probability
+              2: 0.75,  // Ring 2: 75% base probability
+              3: 0.50,  // Ring 3: 50% base probability
+              4: 0.25,  // Ring 4: 25% base probability
+              5: 0.10   // Ring 5: 10% base probability
+            };
+            
+            const baseProbability = baseRingProbabilities[hexagon.ring] || 0;
+            
+            // Amplitude modulation: adjustedProbability = baseProbability * (amplitude / 50)
+            // This creates the effect where higher amplitude increases chance of outer rings appearing
+            const amplitudeModifier = amplitude / 50;
+            const adjustedProbability = Math.min(1, baseProbability * amplitudeModifier);
+            
+            // Random selection for chaotic outer ring effect
+            const isVisible = Math.random() < adjustedProbability;
+            
+            if (!isVisible) return 'none';
+            
+            // For very quiet state (low amplitude), ring 1 gets faint shadow
+            if (amplitude <= 15 && hexagon.ring === 1) {
+              return 'url(#shadow-faint)';
             }
-            return 'none';
+            
+            // Topological variation: randomly assign depression or extrusion for landscape effect
+            // This creates varied topography across the visible hexagons
+            return Math.random() > 0.5 ? 'url(#shadow-depression)' : 'url(#shadow-extrusion)';
           };
 
           return (
             <path
               key={`r${hexagon.ring}-i${hexagon.index}-q${hexagon.q}r${hexagon.r}`}
               d={hexagon.path}
-              className={clsx(styles.hexagon, {
-                [styles.hexagonActive]: isActive,
-                [styles.hexagonPulse]: enableColorPulse && projectColor,
-              })}
-              fill={getFillColor()}
-              stroke={getStroke()}
-              strokeWidth={process.env.NODE_ENV === 'development' ? "0.5" : "0"}
-              filter={`url(#shadow-ring-${hexagon.ring})`}
-              data-frequency={frequency}
+              className={styles.hexagon}
+              fill="var(--color-bg-primary)"
+              stroke="none"
+              filter={getVisibilityFilter()}
               data-ring={hexagon.ring}
-              data-active={isActive}
               data-grid-position={`${hexagon.x},${hexagon.y}`}
-              style={{
-                animationDelay: `${animationDelay}ms`,
-                ...(enableColorPulse && projectColor && {
-                  '--project-color': projectColor,
-                } as React.CSSProperties),
-              }}
             />
           );
         })}

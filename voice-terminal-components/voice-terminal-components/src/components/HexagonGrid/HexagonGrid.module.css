@@ -1,11 +1,10 @@
-/* HexagonGrid Styles - SVG Implementation */
+/* HexagonGrid Styles - Static SVG Implementation */
 .hexagonGrid {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all var(--transition-base);
-  --animation-speed: 1;
+  /* NO transitions - completely static */
 }
 
 .honeycomb {
@@ -21,268 +20,65 @@
 }
 
 .expandedGrid {
-  transition: width var(--transition-slow), height var(--transition-slow);
+  /* NO transitions - grid is always static */
 }
 
-/* SVG Hexagon Path Styles */
+/* SVG Hexagon Path Styles - Completely Static */
 .hexagon {
-  fill: var(--color-bg-secondary);
-  transition: 
-    fill calc(var(--transition-fast) / var(--animation-speed)),
-    transform calc(var(--transition-base) / var(--animation-speed)),
-    filter calc(var(--transition-base) / var(--animation-speed));
-  animation-duration: calc(2s * var(--animation-speed));
-  animation-timing-function: ease-in-out;
-  animation-iteration-count: infinite;
-  animation-fill-mode: both;
-  transform-origin: center;
+  fill: var(--color-bg-primary);
+  /* NO animations, NO transforms, NO transitions - completely static */
+  /* Only filter transitions allowed for shadow visibility changes */
+  transition: filter var(--transition-base, 0.3s ease);
 }
 
-/* Enhanced Shadow States with Ring-based Depth using SVG filters */
+/* Static Hexagon States - NO movement, NO scaling, NO animations */
 .hexagon[data-ring="0"] {
-  /* Center hexagon - will use filter shadow-ring-0 */
-  transform: scale(1.0);
-}
-
-.hexagon[data-ring="0"].hexagonActive {
-  transform: scale(1.15);
-  animation-name: hexagonPulseCenter;
+  /* Center hexagon - static, no transforms */
 }
 
 .hexagon[data-ring="1"] {
-  /* Ring 1 - will use filter shadow-ring-1 */
-  transform: scale(0.98);
-}
-
-.hexagon[data-ring="1"].hexagonActive {
-  transform: scale(1.12);
-  animation-name: hexagonPulseRing1;
+  /* Ring 1 - static, no transforms */
 }
 
 .hexagon[data-ring="2"] {
-  /* Ring 2 - will use filter shadow-ring-2 */
-  transform: scale(0.96);
-}
-
-.hexagon[data-ring="2"].hexagonActive {
-  transform: scale(1.08);
-  animation-name: hexagonPulseRing2;
+  /* Ring 2 - static, no transforms */
 }
 
 .hexagon[data-ring="3"] {
-  /* Ring 3 - will use filter shadow-ring-3 */
-  transform: scale(0.94);
-}
-
-.hexagon[data-ring="3"].hexagonActive {
-  transform: scale(1.05);
-  animation-name: hexagonPulse;
+  /* Ring 3 - static, no transforms */
 }
 
 .hexagon[data-ring="4"] {
-  /* Ring 4 - will use filter shadow-ring-4 */
-  transform: scale(0.92);
-}
-
-.hexagon[data-ring="4"].hexagonActive {
-  transform: scale(1.02);
-  animation-name: hexagonPulse;
+  /* Ring 4 - static, no transforms */
 }
 
 .hexagon[data-ring="5"] {
-  /* Ring 5 - will use filter shadow-ring-5 */
-  transform: scale(0.9);
+  /* Ring 5 - static, no transforms */
 }
 
-.hexagon[data-ring="5"].hexagonActive {
-  transform: scale(1.0);
-  animation-name: hexagonPulse;
-}
+/* NO ANIMATIONS - All keyframes removed for completely static grid */
+/* Shadows create the only visual changes - no movement allowed */
 
-/* Active state for amplitude-driven changes */
-.hexagonActive {
-  animation-name: hexagonPulse;
-}
+/* NO frequency-based animations - all removed for static grid */
 
-/* Project color pulse effect */
-.hexagonPulse {
-  animation-name: hexagonColorPulse;
-}
+/* NO hover effects - hexagons are completely static */
+/* Only shadow filters change for visibility, no movement or scaling allowed */
 
-/* Enhanced Keyframe Animations */
-@keyframes hexagonPulse {
-  0%, 100% {
-    transform: scale(1);
-    fill: var(--color-bg-secondary);
-  }
-  50% {
-    transform: scale(1.15);
-    fill: var(--color-bg-tertiary);
-  }
-}
-
-/* Ring-specific pulse animations */
-@keyframes hexagonPulseCenter {
-  0%, 100% {
-    transform: scale(1);
-    fill: var(--color-bg-secondary);
-  }
-  50% {
-    transform: scale(1.2);
-    fill: var(--color-accent-primary);
-  }
-}
-
-@keyframes hexagonPulseRing1 {
-  0%, 100% {
-    transform: scale(0.98);
-    fill: var(--color-bg-secondary);
-  }
-  50% {
-    transform: scale(1.18);
-    fill: var(--color-bg-tertiary);
-  }
-}
-
-@keyframes hexagonPulseRing2 {
-  0%, 100% {
-    transform: scale(0.96);
-    fill: var(--color-bg-secondary);
-  }
-  50% {
-    transform: scale(1.14);
-    fill: var(--color-bg-tertiary);
-  }
-}
-
-@keyframes hexagonColorPulse {
-  0%, 100% {
-    fill: var(--color-bg-secondary);
-    transform: scale(1);
-  }
-  25% {
-    fill: var(--project-color, var(--color-accent-primary));
-    transform: scale(1.1);
-  }
-  50% {
-    fill: var(--project-color, var(--color-accent-primary));
-    transform: scale(1.15);
-  }
-  75% {
-    fill: var(--project-color, var(--color-accent-primary));
-    transform: scale(1.1);
-  }
-}
-
-/* Frequency-based animation variations */
-.hexagon[data-frequency="0"] {
-  animation-duration: calc(4s * var(--animation-speed));
-}
-
-.hexagon[data-frequency*="0.1"],
-.hexagon[data-frequency*="0.2"],
-.hexagon[data-frequency*="0.3"] {
-  animation-duration: calc(3s * var(--animation-speed));
-}
-
-.hexagon[data-frequency*="0.4"],
-.hexagon[data-frequency*="0.5"],
-.hexagon[data-frequency*="0.6"] {
-  animation-duration: calc(2s * var(--animation-speed));
-}
-
-.hexagon[data-frequency*="0.7"],
-.hexagon[data-frequency*="0.8"],
-.hexagon[data-frequency*="0.9"] {
-  animation-duration: calc(1.5s * var(--animation-speed));
-}
-
-.hexagon[data-frequency="1"] {
-  animation-duration: calc(1s * var(--animation-speed));
-}
-
-/* Enhanced hover effects */
-.hexagon:hover {
-  transform: scale(1.2);
-  fill: var(--color-accent-primary);
-  transition: all var(--transition-fast);
-}
-
-.hexagon[data-ring="0"]:hover {
-  transform: scale(1.25);
-  fill: var(--color-accent-secondary);
-}
-
-.hexagon[data-ring="1"]:hover {
-  transform: scale(1.22);
-  fill: var(--color-accent-secondary);
-}
-
-.hexagon[data-ring="2"]:hover {
-  transform: scale(1.18);
-  fill: var(--color-accent-primary);
-}
-
-.hexagon[data-ring="3"]:hover,
-.hexagon[data-ring="4"]:hover,
-.hexagon[data-ring="5"]:hover {
-  transform: scale(1.15);
-  fill: var(--color-accent-primary);
-}
-
-/* Theme-specific adjustments */
+/* Theme-specific adjustments - static fills only */
 [data-theme="paper-dark"] .hexagon {
-  fill: var(--color-bg-secondary);
-}
-
-[data-theme="paper-dark"] .hexagon:hover {
-  fill: var(--color-accent-primary);
+  fill: var(--color-bg-primary);
 }
 
 [data-theme="paper-light"] .hexagon {
-  fill: var(--color-bg-secondary);
+  fill: var(--color-bg-primary);
 }
 
-[data-theme="paper-light"] .hexagon:hover {
-  fill: var(--color-accent-primary);
-}
+/* NO dark theme animations - all removed for static grid */
 
-/* Dark theme animation variations */
-[data-theme="paper-dark"] .hexagon[data-ring="0"].hexagonActive {
-  animation-name: hexagonPulseCenterDark;
-}
-
-[data-theme="paper-dark"] .hexagon[data-ring="1"].hexagonActive {
-  animation-name: hexagonPulseRing1Dark;
-}
-
-@keyframes hexagonPulseCenterDark {
-  0%, 100% {
-    transform: scale(1);
-    fill: var(--color-bg-secondary);
-  }
-  50% {
-    transform: scale(1.2);
-    fill: var(--color-accent-primary);
-  }
-}
-
-@keyframes hexagonPulseRing1Dark {
-  0%, 100% {
-    transform: scale(0.98);
-    fill: var(--color-bg-secondary);
-  }
-  50% {
-    transform: scale(1.18);
-    fill: var(--color-bg-tertiary);
-  }
-}
-
-/* Accessibility and reduced motion */
+/* Accessibility - no animations needed since grid is completely static */
 @media (prefers-reduced-motion: reduce) {
   .hexagon {
-    animation-duration: 0.01s;
-    animation-iteration-count: 1;
+    transition: none;
   }
   
   .hexagonGrid {
@@ -290,28 +86,13 @@
   }
 }
 
-/* Performance optimizations */
+/* Performance optimizations for static grid */
 .hexagon {
-  will-change: transform, fill;
+  will-change: filter; /* Only filter changes for shadow visibility */
 }
 
 .honeycomb {
-  will-change: transform;
+  /* No will-change needed - honeycomb is completely static */
 }
 
-/* Grid layout optimizations for different ring counts */
-.hexagonGrid[data-ring-count="0"] .hexagon {
-  transition-delay: 0ms;
-}
-
-.hexagonGrid[data-ring-count="1"] .hexagon {
-  transition-delay: calc(50ms / var(--animation-speed));
-}
-
-.hexagonGrid[data-ring-count="2"] .hexagon {
-  transition-delay: calc(100ms / var(--animation-speed));
-}
-
-.hexagonGrid[data-ring-count="3"] .hexagon {
-  transition-delay: calc(150ms / var(--animation-speed));
-}
+/* Static grid - no ring-based delays needed since no animations */

@@ -27,21 +27,27 @@
 /* Message container - handles overall layout and alignment */
 .messageContainer {
   display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
+  flex-direction: column;
+  margin-bottom: 20px; /* Increased for timestamp space */
   padding: 0 16px;
-  align-items: flex-start;
   animation: slideInFromBottom 0.3s ease-out;
 }
 
-/* User container - right aligned */
-.messageContainer--user {
+/* Message row - contains avatar and bubble */
+.messageRow {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+/* User message row - right aligned */
+.messageRow--user {
   flex-direction: row-reverse;
   justify-content: flex-start;
 }
 
-/* Agent container - left aligned */
-.messageContainer--agent {
+/* Agent message row - left aligned */
+.messageRow--agent {
   flex-direction: row;
   justify-content: flex-start;
 }
@@ -63,7 +69,7 @@
   position: relative;
   max-width: 70%;
   min-height: 44px;
-  padding-bottom: 20px; /* Space for timestamp */
+  /* Removed timestamp padding - timestamp is now external */
   word-wrap: break-word;
   overflow-wrap: break-word;
   line-height: 1.5;
@@ -111,24 +117,28 @@
   padding-bottom: 0; /* Timestamp space handled by bubble padding */
 }
 
-/* Timestamp styling - INSIDE bubble at bottom corners */
+/* Timestamp styling - OUTSIDE bubble underneath */
+.timestampContainer {
+  display: flex;
+  margin-top: 4px; /* Small space between bubble and timestamp */
+  padding: 0 12px; /* Align with avatar positioning */
+}
+
+.timestampContainer--user {
+  justify-content: flex-end; /* Right align for user messages */
+  padding-right: 52px; /* Account for avatar width + gap */
+}
+
+.timestampContainer--agent {
+  justify-content: flex-start; /* Left align for agent messages */
+  padding-left: 52px; /* Account for avatar width + gap */
+}
+
 .messageTimestamp {
-  position: absolute;
-  bottom: 8px;
   font-size: 11px;
   color: rgba(107, 114, 128, 0.6); /* 60% opacity */
   font-weight: 400;
   user-select: none;
-}
-
-/* User message timestamp (bottom-left) */
-.timestampUser {
-  left: 20px; /* Account for pill padding */
-}
-
-/* Agent message timestamp (bottom-right) */
-.timestampAgent {
-  right: 16px;
 }
 
 /* User Avatar - Perfect circle (40x40px) */
@@ -252,6 +262,14 @@
   .avatarInitials {
     font-size: 12px;
   }
+
+  .timestampContainer--user {
+    padding-right: 48px; /* Adjust for smaller avatar + gap */
+  }
+
+  .timestampContainer--agent {
+    padding-left: 48px; /* Adjust for smaller avatar + gap */
+  }
 }
 
 @media (max-width: 480px) {
@@ -261,8 +279,11 @@
   }
   
   .messageContainer {
-    gap: 8px;
     padding: 0 12px;
+  }
+  
+  .messageRow {
+    gap: 8px;
   }
   
   .avatarUser,
@@ -277,6 +298,14 @@
   
   .avatarInitials {
     font-size: 11px;
+  }
+
+  .timestampContainer--user {
+    padding-right: 40px; /* Adjust for smallest avatar + gap */
+  }
+
+  .timestampContainer--agent {
+    padding-left: 40px; /* Adjust for smallest avatar + gap */
   }
 }
 
@@ -350,20 +379,47 @@
 }
 
 /* RTL support */
-[dir="rtl"] .messageContainer--user {
+[dir="rtl"] .messageRow--user {
   flex-direction: row;
 }
 
-[dir="rtl"] .messageContainer--agent {
+[dir="rtl"] .messageRow--agent {
   flex-direction: row-reverse;
 }
 
-[dir="rtl"] .timestampUser {
-  left: auto;
-  right: 20px;
+[dir="rtl"] .timestampContainer--user {
+  justify-content: flex-start;
+  padding-left: 52px;
+  padding-right: 12px;
 }
 
-[dir="rtl"] .timestampAgent {
-  right: auto;
-  left: 16px;
+[dir="rtl"] .timestampContainer--agent {
+  justify-content: flex-end;
+  padding-right: 52px;
+  padding-left: 12px;
+}
+
+/* RTL responsive adjustments */
+@media (max-width: 768px) {
+  [dir="rtl"] .timestampContainer--user {
+    padding-left: 48px;
+    padding-right: 12px;
+  }
+
+  [dir="rtl"] .timestampContainer--agent {
+    padding-right: 48px;
+    padding-left: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  [dir="rtl"] .timestampContainer--user {
+    padding-left: 40px;
+    padding-right: 12px;
+  }
+
+  [dir="rtl"] .timestampContainer--agent {
+    padding-right: 40px;
+    padding-left: 12px;
+  }
 }

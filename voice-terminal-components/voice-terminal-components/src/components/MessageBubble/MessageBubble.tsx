@@ -34,7 +34,7 @@ export interface MessageBubbleProps {
   content: string;
   
   /**
-   * Timestamp to display inside the bubble
+   * Timestamp to display underneath the bubble
    */
   timestamp: Date;
   
@@ -125,7 +125,7 @@ const TypingIndicator: React.FC = () => {
 };
 
 /**
- * Timestamp component - positioned inside bubble
+ * Timestamp component - positioned outside and underneath bubble
  */
 const Timestamp: React.FC<{ timestamp: Date; type: MessageType }> = ({ 
   timestamp, 
@@ -139,15 +139,17 @@ const Timestamp: React.FC<{ timestamp: Date; type: MessageType }> = ({
     }).format(date);
   };
 
-  const timestampClasses = clsx(
-    styles.messageTimestamp,
-    type === 'user' ? styles.timestampUser : styles.timestampAgent
+  const timestampContainerClasses = clsx(
+    styles.timestampContainer,
+    styles[`timestampContainer--${type}`]
   );
 
   return (
-    <time className={timestampClasses} dateTime={timestamp.toISOString()}>
-      {formatTimestamp(timestamp)}
-    </time>
+    <div className={timestampContainerClasses}>
+      <time className={styles.messageTimestamp} dateTime={timestamp.toISOString()}>
+        {formatTimestamp(timestamp)}
+      </time>
+    </div>
   );
 };
 
@@ -158,7 +160,7 @@ const Timestamp: React.FC<{ timestamp: Date; type: MessageType }> = ({
  * - User messages: TRUE PILL SHAPE (border-radius: 999px)
  * - Agent messages: Rounded rectangle (border-radius: 12px)
  * - Strong neumorphic shadows for depth
- * - Timestamps inside bubbles (user=bottom-left, agent=bottom-right)
+ * - Timestamps outside bubbles underneath (user=right aligned, agent=left aligned)
  * - User avatars: 40px circle with photo/initials
  * - Agent avatars: 40px rounded square with "AI" badge
  * - Clean, simplified design
@@ -196,8 +198,12 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
   ) => {
     const containerClasses = clsx(
       styles.messageContainer,
-      styles[`messageContainer--${type}`],
       className
+    );
+
+    const rowClasses = clsx(
+      styles.messageRow,
+      styles[`messageRow--${type}`]
     );
 
     const bubbleClasses = clsx(
@@ -207,27 +213,32 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
 
     return (
       <div className={containerClasses} ref={ref}>
-        {/* Agent avatar on left */}
-        {type === 'agent' && (
-          <AgentAvatar />
-        )}
-        
-        {/* Message bubble */}
-        <div 
-          className={bubbleClasses}
-          role="article"
-          aria-live="polite"
-        >
-          <div className={styles.messageContent}>
-            {isTyping ? <TypingIndicator /> : content}
+        {/* Message row with avatar and bubble */}
+        <div className={rowClasses}>
+          {/* Agent avatar on left */}
+          {type === 'agent' && (
+            <AgentAvatar />
+          )}
+          
+          {/* Message bubble */}
+          <div 
+            className={bubbleClasses}
+            role="article"
+            aria-live="polite"
+          >
+            <div className={styles.messageContent}>
+              {isTyping ? <TypingIndicator /> : content}
+            </div>
           </div>
-          <Timestamp timestamp={timestamp} type={type} />
+          
+          {/* User avatar on right */}
+          {type === 'user' && avatar && (
+            <UserAvatar {...avatar} />
+          )}
         </div>
         
-        {/* User avatar on right */}
-        {type === 'user' && avatar && (
-          <UserAvatar {...avatar} />
-        )}
+        {/* Timestamp underneath */}
+        <Timestamp timestamp={timestamp} type={type} />
       </div>
     );
   }

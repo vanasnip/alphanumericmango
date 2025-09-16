@@ -1,6 +1,5 @@
 import React, { memo, useMemo } from 'react';
 import clsx from 'clsx';
-import { Hexagon } from './Hexagon';
 import styles from './HexagonGrid.module.css';
 
 export interface HexagonGridProps {
@@ -8,7 +7,7 @@ export interface HexagonGridProps {
   amplitude?: number;
   /** Array of frequency values for individual hexagons (0-1) */
   frequencies?: number[];
-  /** Size of individual hexagons in pixels */
+  /** Size of individual hexagons in pixels (radius) */
   hexagonSize?: number;
   /** Spacing between hexagons in pixels */
   spacing?: number;
@@ -22,20 +21,44 @@ export interface HexagonGridProps {
   animationSpeed?: number;
 }
 
-interface HexagonPosition {
+interface HexagonData {
   x: number;
   y: number;
   ring: number;
   index: number;
   q: number; // Hex grid Q coordinate (axial)
   r: number; // Hex grid R coordinate (axial)
+  path: string; // SVG path for this hexagon
 }
+
+// Generate SVG path for a flat-topped hexagon centered at (x, y) with given radius
+const generateHexagonPath = (x: number, y: number, radius: number): string => {
+  const points: [number, number][] = [];
+  
+  // Generate 6 points for flat-topped hexagon (starting from top-left, going clockwise)
+  for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI / 3) * i - (Math.PI / 6); // Start at -30° for flat top
+    const px = x + radius * Math.cos(angle);
+    const py = y + radius * Math.sin(angle);
+    points.push([px, py]);
+  }
+  
+  // Create path string: M x,y L x,y L x,y L x,y L x,y L x,y Z
+  const [firstPoint, ...restPoints] = points;
+  const pathCommands = [
+    `M ${firstPoint[0]},${firstPoint[1]}`,
+    ...restPoints.map(([px, py]) => `L ${px},${py}`),
+    'Z'
+  ];
+  
+  return pathCommands.join(' ');
+};
 
 export const HexagonGrid = memo<HexagonGridProps>(({
   amplitude = 0,
   frequencies = [],
   hexagonSize = 24,
-  spacing = 8,
+  spacing = 0, // For true honeycomb, hexagons should touch (spacing = 0)
   projectColor,
   enableColorPulse = false,
   className,
@@ -51,28 +74,30 @@ export const HexagonGrid = memo<HexagonGridProps>(({
     return 5; // 91 hexagons total (1 + 6 + 12 + 18 + 24 + 30)
   }, [amplitude]);
 
-  // Calculate hexagon positions in proper honeycomb pattern
-  const hexagonPositions = useMemo((): HexagonPosition[] => {
-    const positions: HexagonPosition[] = [];
+  // Calculate hexagon positions and paths in proper honeycomb pattern
+  const hexagonData = useMemo((): HexagonData[] => {
+    const hexagons: HexagonData[] = [];
     
     // Hexagon geometry for flat-topped orientation
-    // For flat-topped hexagons to touch edge-to-edge (spacing = 0):
-    // - baseHorizontalSpacing = 1.5 * hexagonSize (distance between centers)  
-    // - baseVerticalSpacing = sqrt(3) * hexagonSize (distance between row centers)
-    // Add spacing prop to create gaps between hexagons
-    const baseHorizontalSpacing = 1.5 * hexagonSize;
-    const baseVerticalSpacing = Math.sqrt(3) * hexagonSize;
-    const horizontalSpacing = baseHorizontalSpacing + spacing;
-    const verticalSpacing = baseVerticalSpacing + spacing;
+    // For hexagons to touch edge-to-edge:
+    // - horizontalSpacing = 1.5 * radius (distance between centers horizontally)
+    // - verticalSpacing = sqrt(3) * radius (distance between row centers)
+    const radius = hexagonSize;
+    const horizontalSpacing = 1.5 * radius + spacing;
+    const verticalSpacing = Math.sqrt(3) * radius + spacing;
     
     // Center hexagon (q=0, r=0)
-    positions.push({ 
-      x: 0, 
-      y: 0, 
-      ring: 0, 
-      index: 0, 
-      q: 0, 
-      r: 0 
+    const centerX = 0;
+    const centerY = 0;
+    
+    hexagons.push({
+      x: centerX,
+      y: centerY,
+      ring: 0,
+      index: 0,
+      q: 0,
+      r: 0,
+      path: generateHexagonPath(centerX, centerY, radius)
     });
     
     // Generate rings using proper hexagonal grid algorithm
@@ -100,18 +125,17 @@ export const HexagonGrid = memo<HexagonGridProps>(({
         // Walk along each edge of the hexagon
         for (let step = 0; step < ring; step++) {
           // Convert axial coordinates to pixel coordinates for flat-topped hexagons
-          // x = horizontal_spacing * q
-          // y = vertical_spacing * (r + q/2)
           const x = horizontalSpacing * q;
           const y = verticalSpacing * (r + q * 0.5);
           
-          positions.push({
+          hexagons.push({
             x,
             y,
             ring,
             index,
             q,
-            r
+            r,
+            path: generateHexagonPath(x, y, radius)
           });
           
           index++;
@@ -123,31 +147,36 @@ export const HexagonGrid = memo<HexagonGridProps>(({
       }
     }
     
-    return positions;
+    return hexagons;
   }, [ringCount, hexagonSize, spacing]);
 
-  // Calculate total hexagons for frequency mapping
-  const totalHexagons = hexagonPositions.length;
-
-  // Calculate grid container size
-  const containerSize = useMemo(() => {
-    if (ringCount === 0) return hexagonSize * 2 + 40; // Single hexagon with padding
+  // Calculate SVG viewBox dimensions
+  const viewBoxDimensions = useMemo(() => {
+    if (ringCount === 0) {
+      const size = hexagonSize * 2.5;
+      return {
+        width: size,
+        height: size,
+        viewBox: `-${size/2} -${size/2} ${size} ${size}`
+      };
+    }
     
-    // Calculate based on hexagon spacing (including spacing prop)
-    const baseHorizontalSpacing = 1.5 * hexagonSize;
-    const baseVerticalSpacing = Math.sqrt(3) * hexagonSize;
-    const horizontalSpacing = baseHorizontalSpacing + spacing;
-    const verticalSpacing = baseVerticalSpacing + spacing;
-    const hexWidth = hexagonSize * 2;
-    const hexHeight = Math.sqrt(3) * hexagonSize;
+    const radius = hexagonSize;
+    const horizontalSpacing = 1.5 * radius + spacing;
+    const verticalSpacing = Math.sqrt(3) * radius + spacing;
     
-    const maxHorizontalDistance = ringCount * horizontalSpacing;
-    const maxVerticalDistance = ringCount * verticalSpacing;
+    // Calculate bounds based on outermost ring
+    const maxHorizontalDistance = ringCount * horizontalSpacing + radius;
+    const maxVerticalDistance = ringCount * verticalSpacing + radius;
     
-    const width = (maxHorizontalDistance * 2) + hexWidth + 40;
-    const height = (maxVerticalDistance * 2) + hexHeight + 40;
+    const width = maxHorizontalDistance * 2 + 20; // Add padding
+    const height = maxVerticalDistance * 2 + 20;
     
-    return Math.max(width, height);
+    return {
+      width: Math.max(width, height),
+      height: Math.max(width, height),
+      viewBox: `-${width/2} -${height/2} ${width} ${height}`
+    };
   }, [ringCount, hexagonSize, spacing]);
 
   const gridClasses = clsx(
@@ -160,55 +189,102 @@ export const HexagonGrid = memo<HexagonGridProps>(({
   );
 
   const gridStyle: React.CSSProperties = {
-    width: `${containerSize}px`,
-    height: `${containerSize}px`,
     '--animation-speed': animationSpeed,
   } as React.CSSProperties;
+
+  // Generate SVG filter IDs for different shadow intensities
+  const generateShadowFilters = () => {
+    const filters = [];
+    
+    for (let ring = 0; ring <= 5; ring++) {
+      const intensity = Math.max(0.8 - ring * 0.15, 0.1); // Decreasing intensity per ring
+      const blurRadius = Math.max(4 - ring * 0.5, 1);
+      
+      filters.push(
+        <filter key={`shadow-ring-${ring}`} id={`shadow-ring-${ring}`} x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur in="SourceAlpha" stdDeviation={blurRadius} />
+          <feOffset dx="2" dy="2" result="offset" />
+          <feFlood floodColor="rgba(22, 27, 29, 0.25)" floodOpacity={intensity} />
+          <feComposite in2="offset" operator="in" />
+          <feMerge>
+            <feMergeNode />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      );
+    }
+    
+    return filters;
+  };
 
   return (
     <div 
       className={gridClasses}
       style={gridStyle}
       role="img"
-      aria-label={`Voice visualization with ${totalHexagons} hexagon${totalHexagons !== 1 ? 's' : ''} at ${Math.round(amplitude)}% amplitude`}
+      aria-label={`Voice visualization with ${hexagonData.length} hexagon${hexagonData.length !== 1 ? 's' : ''} at ${Math.round(amplitude)}% amplitude`}
     >
-      <div className={styles.hexagonContainer}>
-        {hexagonPositions.map((position, index) => {
-          // Map frequency data to hexagons, with fallback to amplitude-based activity
+      <svg
+        className={styles.honeycomb}
+        viewBox={viewBoxDimensions.viewBox}
+        width={viewBoxDimensions.width}
+        height={viewBoxDimensions.height}
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <defs>
+          {generateShadowFilters()}
+        </defs>
+        
+        {hexagonData.map((hexagon, index) => {
+          // Map frequency data to hexagons
           const frequency = frequencies[index] || 0;
-          // For initial implementation: make all hexagons visible (we'll add probability later)
-          const isActive = true; // Show all hexagons for now to verify honeycomb structure
+          const isActive = true; // Show all hexagons for now
           
-          // Calculate animation delay based on ring and position for wave effects
-          const animationDelay = (position.ring * 100 + position.index * 20) / animationSpeed;
+          // Calculate animation delay based on ring and position
+          const animationDelay = (hexagon.ring * 100 + hexagon.index * 20) / animationSpeed;
           
-          const hexagonStyle: React.CSSProperties = {
-            position: 'absolute',
-            left: '50%',
-            top: '50%',
-            transform: `translate(-50%, -50%) translate(${position.x}px, ${position.y}px)`,
+          // Determine fill color based on frequency and active state
+          const getFillColor = () => {
+            if (enableColorPulse && projectColor && frequency > 0.5) {
+              return projectColor;
+            }
+            return 'var(--color-bg-secondary)';
+          };
+          
+          // Determine stroke for debugging (can be removed later)
+          const getStroke = () => {
+            if (process.env.NODE_ENV === 'development') {
+              return `hsl(${hexagon.ring * 60}, 50%, 50%)`; // Different color per ring
+            }
+            return 'none';
           };
 
           return (
-            <div
-              key={`r${position.ring}-i${position.index}-q${position.q}r${position.r}`}
-              className={styles.hexagonWrapper}
-              style={hexagonStyle}
-            >
-              <Hexagon
-                frequency={frequency}
-                active={isActive}
-                gridPosition={{ x: position.x, y: position.y }}
-                ring={position.ring}
-                projectColor={projectColor}
-                enableColorPulse={enableColorPulse}
-                size={hexagonSize}
-                animationDelay={animationDelay}
-              />
-            </div>
+            <path
+              key={`r${hexagon.ring}-i${hexagon.index}-q${hexagon.q}r${hexagon.r}`}
+              d={hexagon.path}
+              className={clsx(styles.hexagon, {
+                [styles.hexagonActive]: isActive,
+                [styles.hexagonPulse]: enableColorPulse && projectColor,
+              })}
+              fill={getFillColor()}
+              stroke={getStroke()}
+              strokeWidth={process.env.NODE_ENV === 'development' ? "0.5" : "0"}
+              filter={`url(#shadow-ring-${hexagon.ring})`}
+              data-frequency={frequency}
+              data-ring={hexagon.ring}
+              data-active={isActive}
+              data-grid-position={`${hexagon.x},${hexagon.y}`}
+              style={{
+                animationDelay: `${animationDelay}ms`,
+                ...(enableColorPulse && projectColor && {
+                  '--project-color': projectColor,
+                } as React.CSSProperties),
+              }}
+            />
           );
         })}
-      </div>
+      </svg>
     </div>
   );
 });

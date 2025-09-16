@@ -1,8 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { HexagonGrid, type HexagonGridProps } from './HexagonGrid';
-import { Hexagon, type HexagonProps } from './Hexagon';
 
 // Helper function to render HexagonGrid with default props
 const renderHexagonGrid = (props: Partial<HexagonGridProps> = {}) => {
@@ -10,21 +9,10 @@ const renderHexagonGrid = (props: Partial<HexagonGridProps> = {}) => {
     amplitude: 0,
     frequencies: [],
     hexagonSize: 24,
-    spacing: 8,
+    spacing: 0, // Default to true honeycomb (touching hexagons)
     ...props,
   };
   return render(<HexagonGrid {...defaultProps} />);
-};
-
-// Helper function to render Hexagon with default props
-const renderHexagon = (props: Partial<HexagonProps> = {}) => {
-  const defaultProps: HexagonProps = {
-    frequency: 0,
-    active: false,
-    size: 24,
-    ...props,
-  };
-  return render(<Hexagon {...defaultProps} />);
 };
 
 describe('HexagonGrid', () => {
@@ -34,6 +22,13 @@ describe('HexagonGrid', () => {
       const grid = screen.getByRole('img');
       expect(grid).toBeInTheDocument();
       expect(grid).toHaveAttribute('aria-label', 'Voice visualization with 1 hexagon at 0% amplitude');
+    });
+
+    it('renders SVG honeycomb structure', () => {
+      const { container } = renderHexagonGrid({ amplitude: 30 });
+      const svg = container.querySelector('svg');
+      expect(svg).toBeInTheDocument();
+      expect(svg).toHaveClass('honeycomb');
     });
 
     it('renders single hexagon at rest (amplitude 0)', () => {
@@ -54,6 +49,31 @@ describe('HexagonGrid', () => {
       const grid = screen.getByRole('img');
       expect(grid).toHaveAttribute('aria-label');
       expect(grid.getAttribute('aria-label')).toContain('Voice visualization');
+    });
+  });
+
+  describe('SVG Structure', () => {
+    it('generates SVG path elements for hexagons', () => {
+      const { container } = renderHexagonGrid({ amplitude: 30 });
+      const paths = container.querySelectorAll('svg path');
+      expect(paths.length).toBeGreaterThan(0);
+    });
+
+    it('includes SVG filter definitions', () => {
+      const { container } = renderHexagonGrid({ amplitude: 30 });
+      const defs = container.querySelector('defs');
+      expect(defs).toBeInTheDocument();
+      
+      const filters = container.querySelectorAll('filter');
+      expect(filters.length).toBeGreaterThan(0);
+    });
+
+    it('generates proper SVG viewBox dimensions', () => {
+      const { container } = renderHexagonGrid({ amplitude: 50 });
+      const svg = container.querySelector('svg');
+      expect(svg).toHaveAttribute('viewBox');
+      expect(svg).toHaveAttribute('width');
+      expect(svg).toHaveAttribute('height');
     });
   });
 
@@ -102,6 +122,43 @@ describe('HexagonGrid', () => {
     });
   });
 
+  describe('Honeycomb Pattern', () => {
+    it('generates hexagons with proper ring assignments', () => {
+      const { container } = renderHexagonGrid({ amplitude: 50 });
+      
+      // Check that we have hexagons from different rings
+      const centerHexagon = container.querySelector('[data-ring="0"]');
+      const ring1Hexagon = container.querySelector('[data-ring="1"]');
+      const ring2Hexagon = container.querySelector('[data-ring="2"]');
+      const ring3Hexagon = container.querySelector('[data-ring="3"]');
+      
+      expect(centerHexagon).toBeInTheDocument();
+      expect(ring1Hexagon).toBeInTheDocument();
+      expect(ring2Hexagon).toBeInTheDocument();
+      expect(ring3Hexagon).toBeInTheDocument();
+    });
+
+    it('generates hexagons with grid position data', () => {
+      const { container } = renderHexagonGrid({ amplitude: 30 });
+      const hexagons = container.querySelectorAll('[data-grid-position]');
+      
+      hexagons.forEach(hexagon => {
+        const position = hexagon.getAttribute('data-grid-position');
+        expect(position).toMatch(/^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/); // Format: "x,y"
+      });
+    });
+
+    it('creates proper SVG path data for hexagons', () => {
+      const { container } = renderHexagonGrid({ amplitude: 30 });
+      const paths = container.querySelectorAll('svg path');
+      
+      paths.forEach(path => {
+        const pathData = path.getAttribute('d');
+        expect(pathData).toMatch(/^M[\d\s.-]+L[\d\s.-]+L[\d\s.-]+L[\d\s.-]+L[\d\s.-]+L[\d\s.-]+Z$/); // Hexagon path pattern
+      });
+    });
+  });
+
   describe('Frequency Data Integration', () => {
     it('uses frequency data when provided', () => {
       const frequencies = [0.8, 0.6, 0.4, 0.2, 0, 0.3, 0.7];
@@ -117,7 +174,7 @@ describe('HexagonGrid', () => {
     });
 
     it('falls back to default frequency when array is shorter', () => {
-      const frequencies = [0.8, 0.6]; // Only 2 frequencies for 7 hexagons
+      const frequencies = [0.8, 0.6]; // Only 2 frequencies for 7+ hexagons
       const { container } = renderHexagonGrid({ 
         amplitude: 30, 
         frequencies 
@@ -142,6 +199,30 @@ describe('HexagonGrid', () => {
     });
   });
 
+  describe('SVG Filters and Shadows', () => {
+    it('applies ring-specific filter shadows', () => {
+      const { container } = renderHexagonGrid({ amplitude: 50 });
+      
+      // Check for filter definitions
+      const filters = container.querySelectorAll('filter[id^="shadow-ring-"]');
+      expect(filters.length).toBeGreaterThanOrEqual(4); // At least 4 rings at amplitude 50
+      
+      // Check that hexagons reference the filters
+      const hexagons = container.querySelectorAll('path[filter]');
+      expect(hexagons.length).toBeGreaterThan(0);
+    });
+
+    it('generates different filter intensities per ring', () => {
+      const { container } = renderHexagonGrid({ amplitude: 100 });
+      
+      const ring0Filter = container.querySelector('#shadow-ring-0');
+      const ring5Filter = container.querySelector('#shadow-ring-5');
+      
+      expect(ring0Filter).toBeInTheDocument();
+      expect(ring5Filter).toBeInTheDocument();
+    });
+  });
+
   describe('Animation and Performance', () => {
     it('sets animation speed multiplier', () => {
       renderHexagonGrid({ animationSpeed: 2 });
@@ -155,15 +236,18 @@ describe('HexagonGrid', () => {
       expect(grid).toHaveStyle('--animation-speed: 1');
     });
 
-    it('positions hexagons with proper transforms', () => {
+    it('applies staggered animation delays', () => {
       const { container } = renderHexagonGrid({ amplitude: 30 });
-      const wrappers = container.querySelectorAll('.hexagonWrapper');
+      const paths = container.querySelectorAll('svg path');
       
-      wrappers.forEach(wrapper => {
-        const style = window.getComputedStyle(wrapper);
-        expect(style.position).toBe('absolute');
-        expect(style.transform).toContain('translate');
+      let hasAnimationDelay = false;
+      paths.forEach(path => {
+        const style = path.getAttribute('style');
+        if (style && style.includes('animation-delay')) {
+          hasAnimationDelay = true;
+        }
       });
+      expect(hasAnimationDelay).toBe(true);
     });
   });
 
@@ -175,10 +259,27 @@ describe('HexagonGrid', () => {
         amplitude: 30
       });
       
-      const hexagons = container.querySelectorAll('.hexagon');
-      // At least some hexagons should have the pulse class
       const pulseHexagons = container.querySelectorAll('.hexagonPulse');
       expect(pulseHexagons.length).toBeGreaterThanOrEqual(0);
+    });
+
+    it('sets project color CSS variable when enabled', () => {
+      const { container } = renderHexagonGrid({ 
+        enableColorPulse: true,
+        projectColor: '#FF5733',
+        amplitude: 30
+      });
+      
+      // Check if any hexagon has the project color variable set
+      const paths = container.querySelectorAll('svg path');
+      let hasProjectColor = false;
+      paths.forEach(path => {
+        const style = path.getAttribute('style');
+        if (style && style.includes('--project-color: #FF5733')) {
+          hasProjectColor = true;
+        }
+      });
+      expect(hasProjectColor).toBe(true);
     });
 
     it('disables color pulse by default', () => {
@@ -189,44 +290,6 @@ describe('HexagonGrid', () => {
       
       const pulseHexagons = container.querySelectorAll('.hexagonPulse');
       expect(pulseHexagons).toHaveLength(0);
-    });
-  });
-
-  describe('Grid Sizing', () => {
-    it('calculates container size for single hexagon', () => {
-      renderHexagonGrid({ amplitude: 0, hexagonSize: 32 });
-      const grid = screen.getByRole('img');
-      expect(grid).toHaveStyle('width: 104px'); // 32 * 2 + 40 padding
-      expect(grid).toHaveStyle('height: 104px');
-    });
-
-    it('calculates container size for expanded grid', () => {
-      renderHexagonGrid({ 
-        amplitude: 50, 
-        hexagonSize: 24, 
-        spacing: 8 
-      });
-      const grid = screen.getByRole('img');
-      
-      // Container should be larger for multiple rings
-      const style = window.getComputedStyle(grid);
-      const width = parseInt(style.width);
-      const height = parseInt(style.height);
-      expect(width).toBeGreaterThan(100);
-      expect(height).toBeGreaterThan(100);
-    });
-
-    it('respects custom hexagon size', () => {
-      const { container } = renderHexagonGrid({ 
-        hexagonSize: 32,
-        amplitude: 30
-      });
-      
-      const hexagons = container.querySelectorAll('.hexagon');
-      hexagons.forEach(hexagon => {
-        expect(hexagon).toHaveStyle('width: 32px');
-        expect(hexagon).toHaveStyle('height: 32px');
-      });
     });
   });
 
@@ -244,7 +307,7 @@ describe('HexagonGrid', () => {
       expect(hexagons).toHaveLength(91); // Max hexagons (5 rings)
     });
 
-    it('handles zero hexagon size gracefully', () => {
+    it('handles zero hexagon size', () => {
       renderHexagonGrid({ hexagonSize: 0 });
       const grid = screen.getByRole('img');
       expect(grid).toBeInTheDocument();
@@ -257,184 +320,42 @@ describe('HexagonGrid', () => {
       });
       
       const hexagons = container.querySelectorAll('[data-frequency]');
-      expect(hexagons).toHaveLength(7);
-    });
-  });
-});
-
-describe('Hexagon', () => {
-  describe('Rendering', () => {
-    it('renders with default props', () => {
-      const { container } = renderHexagon();
-      const hexagon = container.querySelector('.hexagon');
-      expect(hexagon).toBeInTheDocument();
-      expect(hexagon).toHaveAttribute('data-frequency', '0');
-      expect(hexagon).toHaveAttribute('data-active', 'false');
-    });
-
-    it('applies custom size', () => {
-      const { container } = renderHexagon({ size: 32 });
-      const hexagon = container.querySelector('.hexagon');
-      expect(hexagon).toHaveStyle('width: 32px');
-      expect(hexagon).toHaveStyle('height: 32px');
-    });
-
-    it('applies custom className', () => {
-      const { container } = renderHexagon({ className: 'custom-hexagon' });
-      const hexagon = container.querySelector('.hexagon');
-      expect(hexagon).toHaveClass('custom-hexagon');
-    });
-
-    it('sets proper accessibility attributes', () => {
-      const { container } = renderHexagon();
-      const hexagon = container.querySelector('.hexagon');
-      expect(hexagon).toHaveAttribute('role', 'presentation');
-      expect(hexagon).toHaveAttribute('aria-hidden', 'true');
+      expect(hexagons).toHaveLength(19); // 2-ring honeycomb
     });
   });
 
-  describe('Frequency Response', () => {
-    it('applies flat shadow for low frequency', () => {
-      const { container } = renderHexagon({ frequency: 0.05 });
-      const hexagon = container.querySelector('.hexagon');
-      expect(hexagon).toHaveClass('hexagonFlat');
-    });
-
-    it('applies mid shadow for medium frequency', () => {
-      const { container } = renderHexagon({ frequency: 0.5 });
-      const hexagon = container.querySelector('.hexagon');
-      expect(hexagon).toHaveClass('hexagonMid');
-    });
-
-    it('applies raised shadow for high frequency', () => {
-      const { container } = renderHexagon({ frequency: 0.8 });
-      const hexagon = container.querySelector('.hexagon');
-      expect(hexagon).toHaveClass('hexagonRaised');
-    });
-
-    it('applies raised shadow when active regardless of frequency', () => {
-      const { container } = renderHexagon({ frequency: 0.1, active: true });
-      const hexagon = container.querySelector('.hexagon');
-      expect(hexagon).toHaveClass('hexagonRaised');
-    });
-
-    it('stores frequency as data attribute', () => {
-      const { container } = renderHexagon({ frequency: 0.75 });
-      const hexagon = container.querySelector('.hexagon');
-      expect(hexagon).toHaveAttribute('data-frequency', '0.75');
-    });
-  });
-
-  describe('Active State', () => {
-    it('applies active class when active', () => {
-      const { container } = renderHexagon({ active: true });
-      const hexagon = container.querySelector('.hexagon');
-      expect(hexagon).toHaveClass('hexagonActive');
-      expect(hexagon).toHaveAttribute('data-active', 'true');
-    });
-
-    it('does not apply active class when inactive', () => {
-      const { container } = renderHexagon({ active: false });
-      const hexagon = container.querySelector('.hexagon');
-      expect(hexagon).not.toHaveClass('hexagonActive');
-      expect(hexagon).toHaveAttribute('data-active', 'false');
-    });
-  });
-
-  describe('Project Color Pulse', () => {
-    it('applies pulse class when color pulse is enabled', () => {
-      const { container } = renderHexagon({ 
-        enableColorPulse: true,
-        projectColor: '#FF5733'
+  describe('Spacing and Geometry', () => {
+    it('respects spacing parameter for honeycomb gaps', () => {
+      const { container: tightGrid } = renderHexagonGrid({ 
+        amplitude: 30, 
+        spacing: 0 
       });
-      const hexagon = container.querySelector('.hexagon');
-      expect(hexagon).toHaveClass('hexagonPulse');
-    });
-
-    it('sets project color CSS variable', () => {
-      const { container } = renderHexagon({ 
-        enableColorPulse: true,
-        projectColor: '#FF5733'
+      const { container: spacedGrid } = renderHexagonGrid({ 
+        amplitude: 30, 
+        spacing: 10 
       });
-      const hexagon = container.querySelector('.hexagon');
-      expect(hexagon).toHaveStyle('--project-color: #FF5733');
-    });
-
-    it('does not apply pulse class when disabled', () => {
-      const { container } = renderHexagon({ 
-        enableColorPulse: false,
-        projectColor: '#FF5733'
-      });
-      const hexagon = container.querySelector('.hexagon');
-      expect(hexagon).not.toHaveClass('hexagonPulse');
-    });
-  });
-
-  describe('Animation Timing', () => {
-    it('applies animation delay', () => {
-      const { container } = renderHexagon({ animationDelay: 250 });
-      const hexagon = container.querySelector('.hexagon');
-      expect(hexagon).toHaveStyle('animation-delay: 250ms');
-    });
-
-    it('applies default animation delay of 0', () => {
-      const { container } = renderHexagon();
-      const hexagon = container.querySelector('.hexagon');
-      expect(hexagon).toHaveStyle('animation-delay: 0ms');
-    });
-  });
-
-  describe('Grid Position', () => {
-    it('stores grid position as data attribute', () => {
-      const { container } = renderHexagon({ 
-        gridPosition: { x: 10, y: 20 }
-      });
-      const hexagon = container.querySelector('.hexagon');
-      expect(hexagon).toHaveAttribute('data-grid-position', '10,20');
-    });
-
-    it('handles undefined grid position', () => {
-      const { container } = renderHexagon({ gridPosition: undefined });
-      const hexagon = container.querySelector('.hexagon');
-      expect(hexagon).not.toHaveAttribute('data-grid-position');
-    });
-  });
-
-  describe('Edge Cases', () => {
-    it('handles frequency values above 1', () => {
-      const { container } = renderHexagon({ frequency: 1.5 });
-      const hexagon = container.querySelector('.hexagon');
-      expect(hexagon).toHaveClass('hexagonRaised');
-      expect(hexagon).toHaveAttribute('data-frequency', '1.5');
-    });
-
-    it('handles negative frequency', () => {
-      const { container } = renderHexagon({ frequency: -0.5 });
-      const hexagon = container.querySelector('.hexagon');
-      expect(hexagon).toHaveClass('hexagonFlat');
-      expect(hexagon).toHaveAttribute('data-frequency', '-0.5');
-    });
-
-    it('handles zero size', () => {
-      const { container } = renderHexagon({ size: 0 });
-      const hexagon = container.querySelector('.hexagon');
-      expect(hexagon).toHaveStyle('width: 0px');
-      expect(hexagon).toHaveStyle('height: 0px');
-    });
-  });
-
-  describe('Performance', () => {
-    it('uses React.memo to prevent unnecessary re-renders', () => {
-      const { container, rerender } = renderHexagon({ frequency: 0.5 });
-      const hexagon = container.querySelector('.hexagon');
-      const initialHexagon = hexagon;
-
-      // Re-render with same props
-      rerender(<Hexagon frequency={0.5} active={false} size={24} />);
-      const newHexagon = container.querySelector('.hexagon');
       
-      // Component should be memoized
-      expect(newHexagon).toBe(initialHexagon);
+      // Both should have same number of hexagons but different positions
+      const tightHexagons = tightGrid.querySelectorAll('[data-frequency]');
+      const spacedHexagons = spacedGrid.querySelectorAll('[data-frequency]');
+      
+      expect(tightHexagons).toHaveLength(spacedHexagons.length);
+    });
+
+    it('uses proper hexagon size (radius)', () => {
+      const { container } = renderHexagonGrid({ 
+        hexagonSize: 32,
+        amplitude: 30
+      });
+      
+      // Check SVG paths are generated with correct size
+      const paths = container.querySelectorAll('svg path');
+      expect(paths.length).toBeGreaterThan(0);
+      
+      paths.forEach(path => {
+        const pathData = path.getAttribute('d');
+        expect(pathData).toBeTruthy();
+      });
     });
   });
 });

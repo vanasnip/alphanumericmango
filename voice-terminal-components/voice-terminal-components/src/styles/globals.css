@@ -45,9 +45,60 @@
   --color-text-primary: #6E7F8D;
   --color-text-secondary: #B5BFC6;
   --color-text-bright: #6E7F8D;
+  
+  /* Enhanced neumorphic shadows with multi-angle lighting */
   --shadow-raised: -5px -5px 10px #FAFBFF, 5px 5px 10px rgba(22, 27, 29, 0.23);
   --shadow-recessed: inset -5px -5px 10px #FAFBFF, inset 5px 5px 10px rgba(22, 27, 29, 0.23);
   --shadow-flat: -2px -2px 5px #FAFBFF, 2px 2px 5px rgba(22, 27, 29, 0.23);
+  
+  /* Hexagon-specific multi-angle shadows */
+  --shadow-hexagon-center: 
+    -8px -8px 16px #FAFBFF,  /* Primary light from top-left */
+    8px 8px 16px rgba(22, 27, 29, 0.35), /* Primary shadow */
+    -3px -12px 8px rgba(250, 251, 255, 0.4), /* Secondary highlight top */
+    12px 3px 8px rgba(22, 27, 29, 0.2), /* Secondary shadow right */
+    inset -2px -2px 4px rgba(250, 251, 255, 0.6), /* Inner highlight */
+    inset 2px 2px 4px rgba(22, 27, 29, 0.15); /* Inner shadow for texture */
+    
+  --shadow-hexagon-ring1:
+    -6px -6px 12px #FAFBFF,
+    6px 6px 12px rgba(22, 27, 29, 0.3),
+    -2px -8px 6px rgba(250, 251, 255, 0.3),
+    8px 2px 6px rgba(22, 27, 29, 0.18),
+    inset -1px -1px 3px rgba(250, 251, 255, 0.5),
+    inset 1px 1px 3px rgba(22, 27, 29, 0.12);
+    
+  --shadow-hexagon-ring2:
+    -4px -4px 8px #FAFBFF,
+    4px 4px 8px rgba(22, 27, 29, 0.25),
+    -1px -6px 4px rgba(250, 251, 255, 0.2),
+    6px 1px 4px rgba(22, 27, 29, 0.15),
+    inset -1px -1px 2px rgba(250, 251, 255, 0.4),
+    inset 1px 1px 2px rgba(22, 27, 29, 0.1);
+    
+  --shadow-hexagon-ring3:
+    -3px -3px 6px #FAFBFF,
+    3px 3px 6px rgba(22, 27, 29, 0.2),
+    -1px -4px 3px rgba(250, 251, 255, 0.15),
+    4px 1px 3px rgba(22, 27, 29, 0.12),
+    inset -0.5px -0.5px 1.5px rgba(250, 251, 255, 0.3),
+    inset 0.5px 0.5px 1.5px rgba(22, 27, 29, 0.08);
+    
+  --shadow-hexagon-ring4:
+    -2px -2px 4px #FAFBFF,
+    2px 2px 4px rgba(22, 27, 29, 0.15),
+    -0.5px -3px 2px rgba(250, 251, 255, 0.1),
+    3px 0.5px 2px rgba(22, 27, 29, 0.1),
+    inset -0.5px -0.5px 1px rgba(250, 251, 255, 0.2),
+    inset 0.5px 0.5px 1px rgba(22, 27, 29, 0.06);
+    
+  --shadow-hexagon-ring5:
+    -1px -1px 3px #FAFBFF,
+    1px 1px 3px rgba(22, 27, 29, 0.12),
+    -0.5px -2px 1.5px rgba(250, 251, 255, 0.08),
+    2px 0.5px 1.5px rgba(22, 27, 29, 0.08),
+    inset -0.25px -0.25px 0.75px rgba(250, 251, 255, 0.15),
+    inset 0.25px 0.25px 0.75px rgba(22, 27, 29, 0.04);
 }
 
 [data-theme="paper-dark"] {
@@ -57,9 +108,60 @@
   --color-text-primary: #E4E6E9;
   --color-text-secondary: #B8BCC3;
   --color-text-bright: #F0F2F5;
+  
+  /* Enhanced neumorphic shadows with multi-angle lighting - dark theme */
   --shadow-raised: -2px -2px 6px rgba(47, 49, 53, 0.3), 2px 2px 6px rgba(15, 16, 18, 0.5);
   --shadow-recessed: inset -2px -2px 6px rgba(47, 49, 53, 0.3), inset 2px 2px 6px rgba(15, 16, 18, 0.5);
   --shadow-flat: -1px -1px 3px rgba(47, 49, 53, 0.3), 1px 1px 3px rgba(15, 16, 18, 0.5);
+  
+  /* Hexagon-specific multi-angle shadows - dark theme */
+  --shadow-hexagon-center: 
+    -4px -4px 8px rgba(47, 49, 53, 0.4),  /* Primary light from top-left */
+    4px 4px 8px rgba(15, 16, 18, 0.6), /* Primary shadow */
+    -2px -6px 4px rgba(47, 49, 53, 0.25), /* Secondary highlight top */
+    6px 2px 4px rgba(15, 16, 18, 0.35), /* Secondary shadow right */
+    inset -1px -1px 2px rgba(47, 49, 53, 0.5), /* Inner highlight */
+    inset 1px 1px 2px rgba(15, 16, 18, 0.4); /* Inner shadow for texture */
+    
+  --shadow-hexagon-ring1:
+    -3px -3px 6px rgba(47, 49, 53, 0.35),
+    3px 3px 6px rgba(15, 16, 18, 0.5),
+    -1px -4px 3px rgba(47, 49, 53, 0.2),
+    4px 1px 3px rgba(15, 16, 18, 0.3),
+    inset -0.5px -0.5px 1.5px rgba(47, 49, 53, 0.4),
+    inset 0.5px 0.5px 1.5px rgba(15, 16, 18, 0.3);
+    
+  --shadow-hexagon-ring2:
+    -2px -2px 4px rgba(47, 49, 53, 0.3),
+    2px 2px 4px rgba(15, 16, 18, 0.4),
+    -0.5px -3px 2px rgba(47, 49, 53, 0.15),
+    3px 0.5px 2px rgba(15, 16, 18, 0.25),
+    inset -0.5px -0.5px 1px rgba(47, 49, 53, 0.3),
+    inset 0.5px 0.5px 1px rgba(15, 16, 18, 0.25);
+    
+  --shadow-hexagon-ring3:
+    -1.5px -1.5px 3px rgba(47, 49, 53, 0.25),
+    1.5px 1.5px 3px rgba(15, 16, 18, 0.35),
+    -0.5px -2px 1.5px rgba(47, 49, 53, 0.12),
+    2px 0.5px 1.5px rgba(15, 16, 18, 0.2),
+    inset -0.25px -0.25px 0.75px rgba(47, 49, 53, 0.25),
+    inset 0.25px 0.25px 0.75px rgba(15, 16, 18, 0.2);
+    
+  --shadow-hexagon-ring4:
+    -1px -1px 2px rgba(47, 49, 53, 0.2),
+    1px 1px 2px rgba(15, 16, 18, 0.3),
+    -0.25px -1.5px 1px rgba(47, 49, 53, 0.1),
+    1.5px 0.25px 1px rgba(15, 16, 18, 0.15),
+    inset -0.25px -0.25px 0.5px rgba(47, 49, 53, 0.2),
+    inset 0.25px 0.25px 0.5px rgba(15, 16, 18, 0.15);
+    
+  --shadow-hexagon-ring5:
+    -0.5px -0.5px 1.5px rgba(47, 49, 53, 0.15),
+    0.5px 0.5px 1.5px rgba(15, 16, 18, 0.25),
+    -0.25px -1px 0.75px rgba(47, 49, 53, 0.08),
+    1px 0.25px 0.75px rgba(15, 16, 18, 0.12),
+    inset -0.125px -0.125px 0.375px rgba(47, 49, 53, 0.15),
+    inset 0.125px 0.125px 0.375px rgba(15, 16, 18, 0.1);
 }
 
 * {

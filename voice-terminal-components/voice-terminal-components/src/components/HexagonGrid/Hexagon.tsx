@@ -9,6 +9,8 @@ export interface HexagonProps {
   active?: boolean;
   /** Grid position for animation delay */
   gridPosition?: { x: number; y: number };
+  /** Ring number for depth-based shadow effects (0-5) */
+  ring?: number;
   /** Optional project color for pulse effect */
   projectColor?: string;
   /** Enable project color pulse effect */
@@ -25,6 +27,7 @@ export const Hexagon = memo<HexagonProps>(({
   frequency = 0,
   active = false,
   gridPosition,
+  ring = 0,
   projectColor,
   enableColorPulse = false,
   size = 24,
@@ -66,6 +69,7 @@ export const Hexagon = memo<HexagonProps>(({
       style={hexagonStyle}
       data-frequency={frequency}
       data-active={active}
+      data-ring={ring}
       data-grid-position={gridPosition ? `${gridPosition.x},${gridPosition.y}` : undefined}
       role="presentation"
       aria-hidden="true"

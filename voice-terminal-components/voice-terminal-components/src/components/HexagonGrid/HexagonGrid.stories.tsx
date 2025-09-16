@@ -14,7 +14,8 @@ HexagonGrid is a dynamic visualization component that responds to voice amplitud
 It starts with a single hexagon at rest and expands to multiple rings based on amplitude levels.
 
 **Features:**
-- Amplitude-based expansion (1 → 7 → 19 → 37 hexagons)
+- Amplitude-based expansion (1 → 7 → 19 → 37 → 61 → 91 hexagons)
+- Connected honeycomb structure with perfect tessellation
 - Pure shadow-based animations for paper theme compatibility
 - Individual hexagon frequency response
 - Optional project color pulse effects
@@ -23,9 +24,11 @@ It starts with a single hexagon at rest and expands to multiple rings based on a
 
 **Mathematical Layout:**
 - Center: 1 hexagon (amplitude 0)
-- Ring 1: 6 hexagons (amplitude ≤30)
-- Ring 2: 12 hexagons (amplitude ≤70)  
-- Ring 3: 18 hexagons (amplitude >70)
+- Ring 1: 6 hexagons (amplitude ≤15)
+- Ring 2: 12 hexagons (amplitude ≤35)  
+- Ring 3: 18 hexagons (amplitude ≤60)
+- Ring 4: 24 hexagons (amplitude ≤85)
+- Ring 5: 30 hexagons (amplitude >85)
         `,
       },
     },
@@ -114,12 +117,12 @@ export const SingleHexagon: Story = {
 
 export const LowAmplitude: Story = {
   args: {
-    amplitude: 25,
+    amplitude: 12,
   },
   parameters: {
     docs: {
       description: {
-        story: 'Low amplitude (≤30) shows 7 hexagons in total: 1 center + 6 in the first ring.',
+        story: 'Low amplitude (≤15) shows 7 hexagons in total: 1 center + 6 in the first ring.',
       },
     },
   },
@@ -127,12 +130,12 @@ export const LowAmplitude: Story = {
 
 export const MediumAmplitude: Story = {
   args: {
-    amplitude: 50,
+    amplitude: 30,
   },
   parameters: {
     docs: {
       description: {
-        story: 'Medium amplitude (31-70) shows 19 hexagons in total: 1 center + 6 in ring 1 + 12 in ring 2.',
+        story: 'Medium amplitude (16-35) shows 19 hexagons in total: 1 center + 6 in ring 1 + 12 in ring 2.',
       },
     },
   },
@@ -140,12 +143,38 @@ export const MediumAmplitude: Story = {
 
 export const HighAmplitude: Story = {
   args: {
-    amplitude: 85,
+    amplitude: 50,
   },
   parameters: {
     docs: {
       description: {
-        story: 'High amplitude (>70) shows 37 hexagons in total: 1 center + 6 + 12 + 18 in three rings.',
+        story: 'High amplitude (36-60) shows 37 hexagons in total: 1 center + 6 + 12 + 18 in three rings.',
+      },
+    },
+  },
+};
+
+export const VeryHighAmplitude: Story = {
+  args: {
+    amplitude: 75,
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Very high amplitude (61-85) shows 61 hexagons in total: 1 center + 6 + 12 + 18 + 24 in four rings.',
+      },
+    },
+  },
+};
+
+export const MaximumAmplitude: Story = {
+  args: {
+    amplitude: 100,
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Maximum amplitude (>85) shows 91 hexagons in total: 1 center + 6 + 12 + 18 + 24 + 30 in five rings forming perfect honeycomb.',
       },
     },
   },
@@ -155,7 +184,7 @@ export const HighAmplitude: Story = {
 export const WithFrequencyData: Story = {
   args: {
     amplitude: 50,
-    frequencies: [0.9, 0.7, 0.5, 0.3, 0.8, 0.6, 0.4, 0.2, 0.9, 0.1, 0.7, 0.3, 0.8, 0.5, 0.2, 0.6, 0.4, 0.9, 0.1],
+    frequencies: [0.9, 0.7, 0.5, 0.3, 0.8, 0.6, 0.4, 0.2, 0.9, 0.1, 0.7, 0.3, 0.8, 0.5, 0.2, 0.6, 0.4, 0.9, 0.1, 0.6, 0.8, 0.3, 0.7, 0.4, 0.9, 0.2, 0.5, 0.8, 0.1, 0.6, 0.7, 0.3, 0.9, 0.4, 0.8, 0.2, 0.5],
   },
   parameters: {
     docs: {
@@ -326,16 +355,15 @@ export const EdgeCases: Story = {
 // Performance test
 export const PerformanceTest: Story = {
   args: {
-    amplitude: 90,
-    frequencies: Array.from({ length: 37 }, (_, i) => Math.sin(i * 0.1) * 0.5 + 0.5),
+    amplitude: 100,
+    frequencies: Array.from({ length: 91 }, (_, i) => Math.sin(i * 0.1) * 0.5 + 0.5),
     hexagonSize: 20,
-    spacing: 6,
     animationSpeed: 1.5,
   },
   parameters: {
     docs: {
       description: {
-        story: 'Performance test with maximum hexagons (37) and dynamic frequency data.',
+        story: 'Performance test with maximum hexagons (91) and dynamic frequency data across all 5 rings.',
       },
     },
   },

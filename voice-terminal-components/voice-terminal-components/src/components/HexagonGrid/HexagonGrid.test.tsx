@@ -64,22 +64,34 @@ describe('HexagonGrid', () => {
       expect(hexagons).toHaveLength(1);
     });
 
-    it('shows 7 hexagons for low amplitude (≤30)', () => {
-      const { container } = renderHexagonGrid({ amplitude: 25 });
+    it('shows 7 hexagons for low amplitude (≤15)', () => {
+      const { container } = renderHexagonGrid({ amplitude: 12 });
       const hexagons = container.querySelectorAll('[data-frequency]');
       expect(hexagons).toHaveLength(7); // 1 center + 6 ring 1
     });
 
-    it('shows 19 hexagons for medium amplitude (31-70)', () => {
-      const { container } = renderHexagonGrid({ amplitude: 50 });
+    it('shows 19 hexagons for medium amplitude (16-35)', () => {
+      const { container } = renderHexagonGrid({ amplitude: 30 });
       const hexagons = container.querySelectorAll('[data-frequency]');
       expect(hexagons).toHaveLength(19); // 1 center + 6 ring 1 + 12 ring 2
     });
 
-    it('shows 37 hexagons for high amplitude (>70)', () => {
-      const { container } = renderHexagonGrid({ amplitude: 85 });
+    it('shows 37 hexagons for high amplitude (36-60)', () => {
+      const { container } = renderHexagonGrid({ amplitude: 50 });
       const hexagons = container.querySelectorAll('[data-frequency]');
       expect(hexagons).toHaveLength(37); // 1 center + 6 ring 1 + 12 ring 2 + 18 ring 3
+    });
+
+    it('shows 61 hexagons for very high amplitude (61-85)', () => {
+      const { container } = renderHexagonGrid({ amplitude: 75 });
+      const hexagons = container.querySelectorAll('[data-frequency]');
+      expect(hexagons).toHaveLength(61); // 1 center + 6 ring 1 + 12 ring 2 + 18 ring 3 + 24 ring 4
+    });
+
+    it('shows 91 hexagons for maximum amplitude (>85)', () => {
+      const { container } = renderHexagonGrid({ amplitude: 100 });
+      const hexagons = container.querySelectorAll('[data-frequency]');
+      expect(hexagons).toHaveLength(91); // 1 center + 6 + 12 + 18 + 24 + 30 = 91 hexagons
     });
 
     it('expands grid when amplitude increases', () => {
@@ -184,8 +196,8 @@ describe('HexagonGrid', () => {
     it('calculates container size for single hexagon', () => {
       renderHexagonGrid({ amplitude: 0, hexagonSize: 32 });
       const grid = screen.getByRole('img');
-      expect(grid).toHaveStyle('width: 52px'); // 32 + 20 padding
-      expect(grid).toHaveStyle('height: 52px');
+      expect(grid).toHaveStyle('width: 104px'); // 32 * 2 + 40 padding
+      expect(grid).toHaveStyle('height: 104px');
     });
 
     it('calculates container size for expanded grid', () => {
@@ -229,7 +241,7 @@ describe('HexagonGrid', () => {
     it('handles very high amplitude', () => {
       const { container } = renderHexagonGrid({ amplitude: 200 });
       const hexagons = container.querySelectorAll('[data-frequency]');
-      expect(hexagons).toHaveLength(37); // Max hexagons
+      expect(hexagons).toHaveLength(91); // Max hexagons (5 rings)
     });
 
     it('handles zero hexagon size gracefully', () => {

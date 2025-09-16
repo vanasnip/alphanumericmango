@@ -35,7 +35,8 @@
   width: 24px;
   height: 24px;
   background-color: var(--color-bg-secondary);
-  clip-path: polygon(30% 0%, 70% 0%, 100% 50%, 70% 100%, 30% 100%, 0% 50%);
+  /* Flat-topped hexagon clip-path for perfect honeycomb tessellation */
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
   transition: 
     box-shadow calc(var(--transition-fast) / var(--animation-speed)),
     transform calc(var(--transition-base) / var(--animation-speed)),
@@ -46,7 +47,7 @@
   animation-fill-mode: both;
 }
 
-/* Shadow States */
+/* Enhanced Shadow States with Ring-based Depth */
 .hexagonFlat {
   box-shadow: var(--shadow-flat);
   transform: translateZ(0);
@@ -62,9 +63,94 @@
   transform: translateZ(0) scale(1.1);
 }
 
-/* Active state for amplitude-driven changes */
+/* Ring-based shadow intensity system */
+.hexagon[data-ring="0"] {
+  /* Center hexagon - strongest shadow */
+  box-shadow: var(--shadow-hexagon-center);
+  transform: translateZ(0) scale(1.0);
+}
+
+.hexagon[data-ring="0"].hexagonRaised {
+  box-shadow: var(--shadow-hexagon-center);
+  transform: translateZ(0) scale(1.15);
+}
+
+.hexagon[data-ring="1"] {
+  /* Ring 1 - strong shadow */
+  box-shadow: var(--shadow-hexagon-ring1);
+  transform: translateZ(0) scale(0.98);
+}
+
+.hexagon[data-ring="1"].hexagonRaised {
+  box-shadow: var(--shadow-hexagon-ring1);
+  transform: translateZ(0) scale(1.12);
+}
+
+.hexagon[data-ring="2"] {
+  /* Ring 2 - medium shadow */
+  box-shadow: var(--shadow-hexagon-ring2);
+  transform: translateZ(0) scale(0.96);
+}
+
+.hexagon[data-ring="2"].hexagonRaised {
+  box-shadow: var(--shadow-hexagon-ring2);
+  transform: translateZ(0) scale(1.08);
+}
+
+.hexagon[data-ring="3"] {
+  /* Ring 3 - lighter shadow */
+  box-shadow: var(--shadow-hexagon-ring3);
+  transform: translateZ(0) scale(0.94);
+}
+
+.hexagon[data-ring="3"].hexagonRaised {
+  box-shadow: var(--shadow-hexagon-ring3);
+  transform: translateZ(0) scale(1.05);
+}
+
+.hexagon[data-ring="4"] {
+  /* Ring 4 - subtle shadow */
+  box-shadow: var(--shadow-hexagon-ring4);
+  transform: translateZ(0) scale(0.92);
+}
+
+.hexagon[data-ring="4"].hexagonRaised {
+  box-shadow: var(--shadow-hexagon-ring4);
+  transform: translateZ(0) scale(1.02);
+}
+
+.hexagon[data-ring="5"] {
+  /* Ring 5 - minimal shadow */
+  box-shadow: var(--shadow-hexagon-ring5);
+  transform: translateZ(0) scale(0.9);
+}
+
+.hexagon[data-ring="5"].hexagonRaised {
+  box-shadow: var(--shadow-hexagon-ring5);
+  transform: translateZ(0) scale(1.0);
+}
+
+/* Active state for amplitude-driven changes with ring-aware animations */
 .hexagonActive {
   animation-name: hexagonPulse;
+}
+
+.hexagon[data-ring="0"].hexagonActive {
+  animation-name: hexagonPulseCenter;
+}
+
+.hexagon[data-ring="1"].hexagonActive {
+  animation-name: hexagonPulseRing1;
+}
+
+.hexagon[data-ring="2"].hexagonActive {
+  animation-name: hexagonPulseRing2;
+}
+
+.hexagon[data-ring="3"].hexagonActive,
+.hexagon[data-ring="4"].hexagonActive,
+.hexagon[data-ring="5"].hexagonActive {
+  animation-name: hexagonPulse; /* Outer rings use standard pulse */
 }
 
 /* Project color pulse effect (experimental) */
@@ -72,7 +158,33 @@
   animation-name: hexagonColorPulse;
 }
 
-/* Keyframe Animations */
+/* Paper-like texture effects */
+.hexagon::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+  background: 
+    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    radial-gradient(circle at 70% 80%, rgba(0, 0, 0, 0.02) 0.5px, transparent 0.5px),
+    radial-gradient(circle at 40% 60%, rgba(255, 255, 255, 0.02) 0.8px, transparent 0.8px);
+  background-size: 8px 8px, 12px 12px, 6px 6px;
+  pointer-events: none;
+  opacity: 0.4;
+}
+
+[data-theme="paper-dark"] .hexagon::before {
+  background: 
+    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    radial-gradient(circle at 70% 80%, rgba(0, 0, 0, 0.05) 0.5px, transparent 0.5px),
+    radial-gradient(circle at 40% 60%, rgba(255, 255, 255, 0.015) 0.8px, transparent 0.8px);
+  opacity: 0.3;
+}
+
+/* Enhanced Keyframe Animations with Ring-aware Effects */
 @keyframes hexagonPulse {
   0%, 100% {
     transform: translateZ(0) scale(1);
@@ -81,6 +193,58 @@
   50% {
     transform: translateZ(0) scale(1.15);
     box-shadow: var(--shadow-raised);
+  }
+}
+
+/* Ring-specific pulse animations */
+@keyframes hexagonPulseCenter {
+  0%, 100% {
+    transform: translateZ(0) scale(1);
+    box-shadow: var(--shadow-hexagon-center);
+  }
+  50% {
+    transform: translateZ(0) scale(1.2);
+    box-shadow: 
+      -12px -12px 24px #FAFBFF,
+      12px 12px 24px rgba(22, 27, 29, 0.4),
+      -4px -16px 12px rgba(250, 251, 255, 0.5),
+      16px 4px 12px rgba(22, 27, 29, 0.25),
+      inset -3px -3px 6px rgba(250, 251, 255, 0.7),
+      inset 3px 3px 6px rgba(22, 27, 29, 0.2);
+  }
+}
+
+@keyframes hexagonPulseRing1 {
+  0%, 100% {
+    transform: translateZ(0) scale(0.98);
+    box-shadow: var(--shadow-hexagon-ring1);
+  }
+  50% {
+    transform: translateZ(0) scale(1.18);
+    box-shadow: 
+      -8px -8px 16px #FAFBFF,
+      8px 8px 16px rgba(22, 27, 29, 0.35),
+      -3px -10px 8px rgba(250, 251, 255, 0.4),
+      10px 3px 8px rgba(22, 27, 29, 0.2),
+      inset -2px -2px 4px rgba(250, 251, 255, 0.6),
+      inset 2px 2px 4px rgba(22, 27, 29, 0.15);
+  }
+}
+
+@keyframes hexagonPulseRing2 {
+  0%, 100% {
+    transform: translateZ(0) scale(0.96);
+    box-shadow: var(--shadow-hexagon-ring2);
+  }
+  50% {
+    transform: translateZ(0) scale(1.14);
+    box-shadow: 
+      -6px -6px 12px #FAFBFF,
+      6px 6px 12px rgba(22, 27, 29, 0.3),
+      -2px -8px 6px rgba(250, 251, 255, 0.3),
+      8px 2px 6px rgba(22, 27, 29, 0.18),
+      inset -1.5px -1.5px 3px rgba(250, 251, 255, 0.5),
+      inset 1.5px 1.5px 3px rgba(22, 27, 29, 0.12);
   }
 }
 
@@ -135,11 +299,72 @@
   animation-duration: calc(1s * var(--animation-speed));
 }
 
-/* Hover effects (for Storybook interaction) */
+/* Enhanced hover effects with ring-aware scaling */
 .hexagon:hover {
   transform: translateZ(0) scale(1.2);
   box-shadow: var(--shadow-raised);
   transition: all var(--transition-fast);
+}
+
+.hexagon[data-ring="0"]:hover {
+  transform: translateZ(0) scale(1.25);
+  box-shadow: 
+    -15px -15px 30px #FAFBFF,
+    15px 15px 30px rgba(22, 27, 29, 0.5),
+    -5px -20px 15px rgba(250, 251, 255, 0.6),
+    20px 5px 15px rgba(22, 27, 29, 0.3),
+    inset -4px -4px 8px rgba(250, 251, 255, 0.8),
+    inset 4px 4px 8px rgba(22, 27, 29, 0.25);
+}
+
+.hexagon[data-ring="1"]:hover {
+  transform: translateZ(0) scale(1.22);
+  box-shadow: 
+    -10px -10px 20px #FAFBFF,
+    10px 10px 20px rgba(22, 27, 29, 0.4),
+    -4px -12px 10px rgba(250, 251, 255, 0.5),
+    12px 4px 10px rgba(22, 27, 29, 0.25),
+    inset -2.5px -2.5px 5px rgba(250, 251, 255, 0.7),
+    inset 2.5px 2.5px 5px rgba(22, 27, 29, 0.18);
+}
+
+.hexagon[data-ring="2"]:hover {
+  transform: translateZ(0) scale(1.18);
+  box-shadow: 
+    -8px -8px 16px #FAFBFF,
+    8px 8px 16px rgba(22, 27, 29, 0.35),
+    -3px -10px 8px rgba(250, 251, 255, 0.4),
+    10px 3px 8px rgba(22, 27, 29, 0.2),
+    inset -2px -2px 4px rgba(250, 251, 255, 0.6),
+    inset 2px 2px 4px rgba(22, 27, 29, 0.15);
+}
+
+.hexagon[data-ring="3"]:hover,
+.hexagon[data-ring="4"]:hover,
+.hexagon[data-ring="5"]:hover {
+  transform: translateZ(0) scale(1.15);
+  box-shadow: var(--shadow-raised);
+}
+
+/* Dark theme hover adjustments */
+[data-theme="paper-dark"] .hexagon[data-ring="0"]:hover {
+  box-shadow: 
+    -8px -8px 16px rgba(47, 49, 53, 0.5),
+    8px 8px 16px rgba(15, 16, 18, 0.7),
+    -3px -10px 8px rgba(47, 49, 53, 0.3),
+    10px 3px 8px rgba(15, 16, 18, 0.4),
+    inset -2px -2px 4px rgba(47, 49, 53, 0.6),
+    inset 2px 2px 4px rgba(15, 16, 18, 0.5);
+}
+
+[data-theme="paper-dark"] .hexagon[data-ring="1"]:hover {
+  box-shadow: 
+    -6px -6px 12px rgba(47, 49, 53, 0.4),
+    6px 6px 12px rgba(15, 16, 18, 0.6),
+    -2px -8px 6px rgba(47, 49, 53, 0.25),
+    8px 2px 6px rgba(15, 16, 18, 0.35),
+    inset -1.5px -1.5px 3px rgba(47, 49, 53, 0.5),
+    inset 1.5px 1.5px 3px rgba(15, 16, 18, 0.4);
 }
 
 /* Accessibility and reduced motion */
@@ -196,4 +421,47 @@
 
 [data-theme="paper-light"] .hexagonRaised {
   box-shadow: var(--shadow-raised);
+}
+
+/* Dark theme animation keyframes for enhanced effects */
+[data-theme="paper-dark"] .hexagon[data-ring="0"].hexagonActive {
+  animation-name: hexagonPulseCenterDark;
+}
+
+[data-theme="paper-dark"] .hexagon[data-ring="1"].hexagonActive {
+  animation-name: hexagonPulseRing1Dark;
+}
+
+@keyframes hexagonPulseCenterDark {
+  0%, 100% {
+    transform: translateZ(0) scale(1);
+    box-shadow: var(--shadow-hexagon-center);
+  }
+  50% {
+    transform: translateZ(0) scale(1.2);
+    box-shadow: 
+      -6px -6px 12px rgba(47, 49, 53, 0.5),
+      6px 6px 12px rgba(15, 16, 18, 0.7),
+      -2px -8px 6px rgba(47, 49, 53, 0.3),
+      8px 2px 6px rgba(15, 16, 18, 0.4),
+      inset -1.5px -1.5px 3px rgba(47, 49, 53, 0.6),
+      inset 1.5px 1.5px 3px rgba(15, 16, 18, 0.5);
+  }
+}
+
+@keyframes hexagonPulseRing1Dark {
+  0%, 100% {
+    transform: translateZ(0) scale(0.98);
+    box-shadow: var(--shadow-hexagon-ring1);
+  }
+  50% {
+    transform: translateZ(0) scale(1.18);
+    box-shadow: 
+      -4px -4px 8px rgba(47, 49, 53, 0.4),
+      4px 4px 8px rgba(15, 16, 18, 0.6),
+      -1.5px -6px 4px rgba(47, 49, 53, 0.25),
+      6px 1.5px 4px rgba(15, 16, 18, 0.35),
+      inset -1px -1px 2px rgba(47, 49, 53, 0.5),
+      inset 1px 1px 2px rgba(15, 16, 18, 0.4);
+  }
 }

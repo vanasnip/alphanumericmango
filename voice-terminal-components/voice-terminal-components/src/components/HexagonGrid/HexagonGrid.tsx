@@ -139,6 +139,50 @@ export const HexagonGrid = memo<HexagonGridProps>(({
     height: `${size}px`,
   } as React.CSSProperties;
 
+  // Generate gradients for different elevation states
+  const generateGradients = () => {
+    return [
+      // Crater/depression gradient - darker center fading outward
+      <radialGradient key="gradient-crater" id="gradient-crater">
+        <stop offset="0%" stopColor="var(--color-bg-primary)" stopOpacity="0.85" />
+        <stop offset="100%" stopColor="var(--color-bg-primary)" stopOpacity="1" />
+      </radialGradient>,
+      
+      // Elevated gradient - lighter center fading to normal
+      <radialGradient key="gradient-elevated" id="gradient-elevated">
+        <stop offset="0%" stopColor="var(--color-bg-primary)" stopOpacity="1" />
+        <stop offset="70%" stopColor="var(--color-bg-primary)" stopOpacity="0.95" />
+        <stop offset="100%" stopColor="var(--color-bg-primary)" stopOpacity="0.92" />
+      </radialGradient>,
+      
+      // High elevation gradient - even lighter
+      <radialGradient key="gradient-elevated-high" id="gradient-elevated-high">
+        <stop offset="0%" stopColor="white" stopOpacity="0.08" />
+        <stop offset="50%" stopColor="white" stopOpacity="0.04" />
+        <stop offset="100%" stopColor="var(--color-bg-primary)" stopOpacity="0.94" />
+      </radialGradient>,
+      
+      // Hole gradient - very dark center
+      <radialGradient key="gradient-hole" id="gradient-hole">
+        <stop offset="0%" stopColor="black" stopOpacity="0.15" />
+        <stop offset="60%" stopColor="black" stopOpacity="0.08" />
+        <stop offset="100%" stopColor="var(--color-bg-primary)" stopOpacity="0.9" />
+      </radialGradient>,
+      
+      // Depression gradient - subtle darkening
+      <radialGradient key="gradient-depression" id="gradient-depression">
+        <stop offset="0%" stopColor="black" stopOpacity="0.05" />
+        <stop offset="100%" stopColor="var(--color-bg-primary)" stopOpacity="0.97" />
+      </radialGradient>,
+      
+      // Extrusion gradient - subtle lightening
+      <radialGradient key="gradient-extrusion" id="gradient-extrusion">
+        <stop offset="0%" stopColor="white" stopOpacity="0.03" />
+        <stop offset="100%" stopColor="var(--color-bg-primary)" stopOpacity="0.98" />
+      </radialGradient>,
+    ];
+  };
+
   // Generate shadow filters for different visibility states and topology variations
   const generateShadowFilters = () => {
     return [
@@ -328,6 +372,7 @@ export const HexagonGrid = memo<HexagonGridProps>(({
         xmlns="http://www.w3.org/2000/svg"
       >
         <defs>
+          {generateGradients()}
           {generateShadowFilters()}
         </defs>
         
@@ -339,13 +384,13 @@ export const HexagonGrid = memo<HexagonGridProps>(({
             return (ringOrder[a.ring] || 0) - (ringOrder[b.ring] || 0);
           })
           .map((hexagon, index) => {
-          // Determine visibility based on amplitude and ring-based probability system
-          const getVisibilityFilter = (): string => {
+          // Determine visibility and gradient based on amplitude and ring-based probability system
+          const getVisibilityAndGradient = (): { filter: string; fill: string } => {
             // Quiet state: center as crater, ring 1 with faint shadow
             if (amplitude <= 0) {
-              if (hexagon.ring === 0) return 'url(#shadow-crater-center)';
-              if (hexagon.ring === 1) return 'url(#shadow-faint)';
-              return 'none'; // invisible
+              if (hexagon.ring === 0) return { filter: 'url(#shadow-crater-center)', fill: 'url(#gradient-crater)' };
+              if (hexagon.ring === 1) return { filter: 'url(#shadow-faint)', fill: 'var(--color-bg-primary)' };
+              return { filter: 'none', fill: 'var(--color-bg-primary)' }; // invisible
             }
             
             // Ring-based base probabilities according to specification
@@ -366,67 +411,69 @@ export const HexagonGrid = memo<HexagonGridProps>(({
             // Random selection for chaotic outer ring effect
             const isVisible = Math.random() < adjustedProbability;
             
-            if (!isVisible) return 'none';
+            if (!isVisible) return { filter: 'none', fill: 'var(--color-bg-primary)' };
             
             // Crater topology: center is deeply depressed, ring 1 forms elevated rim
             if (hexagon.ring === 0) {
-              return 'url(#shadow-crater-center)'; // Deep depression in center
+              return { filter: 'url(#shadow-crater-center)', fill: 'url(#gradient-crater)' }; // Deep depression in center
             }
             
             // Ring 1 forms the elevated rim with occasional holes for contrast
             if (hexagon.ring === 1) {
               const variation = Math.random();
               if (variation > 0.85) {
-                return 'url(#shadow-hole-deep)'; // 15% appear as holes
+                return { filter: 'url(#shadow-hole-deep)', fill: 'url(#gradient-hole)' }; // 15% appear as holes
               } else if (variation > 0.5) {
-                return 'url(#shadow-rim-elevated-high)'; // 35% highest elevation
+                return { filter: 'url(#shadow-rim-elevated-high)', fill: 'url(#gradient-elevated-high)' }; // 35% highest elevation
               } else {
-                return 'url(#shadow-rim-elevated)'; // 50% normal elevation
+                return { filter: 'url(#shadow-rim-elevated)', fill: 'url(#gradient-elevated)' }; // 50% normal elevation
               }
             }
             
             // For very quiet state (low amplitude), outer rings get subtle shadows
             if (amplitude <= 15 && hexagon.ring >= 2) {
-              return 'url(#shadow-faint)';
+              return { filter: 'url(#shadow-faint)', fill: 'var(--color-bg-primary)' };
             }
             
             // Ring 2: Mix of elevations and occasional holes
             if (hexagon.ring === 2) {
               const variation = Math.random();
               if (variation > 0.9) {
-                return 'url(#shadow-hole-medium)'; // 10% appear as medium holes
+                return { filter: 'url(#shadow-hole-medium)', fill: 'url(#gradient-hole)' }; // 10% appear as medium holes
               } else if (variation > 0.8) {
-                return 'url(#shadow-hole-deep)'; // 10% appear as deep holes
+                return { filter: 'url(#shadow-hole-deep)', fill: 'url(#gradient-hole)' }; // 10% appear as deep holes
               } else if (variation > 0.5) {
-                return 'url(#shadow-extrusion)'; // 30% raised
+                return { filter: 'url(#shadow-extrusion)', fill: 'url(#gradient-extrusion)' }; // 30% raised
               } else {
-                return 'url(#shadow-depression)'; // 50% depressed
+                return { filter: 'url(#shadow-depression)', fill: 'url(#gradient-depression)' }; // 50% depressed
               }
             }
             
             // Ring 3 (outer): Strong variations with more holes for dramatic landscape
             const outerVariation = Math.random();
             if (outerVariation > 0.85) {
-              return 'url(#shadow-hole-deep)'; // 15% deep holes
+              return { filter: 'url(#shadow-hole-deep)', fill: 'url(#gradient-hole)' }; // 15% deep holes
             } else if (outerVariation > 0.75) {
-              return 'url(#shadow-hole-medium)'; // 10% medium holes
+              return { filter: 'url(#shadow-hole-medium)', fill: 'url(#gradient-hole)' }; // 10% medium holes
             } else if (outerVariation > 0.6) {
-              return 'url(#shadow-rim-elevated)'; // 15% strongly raised
+              return { filter: 'url(#shadow-rim-elevated)', fill: 'url(#gradient-elevated)' }; // 15% strongly raised
             } else if (outerVariation > 0.3) {
-              return 'url(#shadow-depression)'; // 30% depressed
+              return { filter: 'url(#shadow-depression)', fill: 'url(#gradient-depression)' }; // 30% depressed
             } else {
-              return 'url(#shadow-extrusion)'; // 30% slightly raised
+              return { filter: 'url(#shadow-extrusion)', fill: 'url(#gradient-extrusion)' }; // 30% slightly raised
             }
           };
 
+          const visibilityAndGradient = getVisibilityAndGradient();
+          
           return (
             <path
               key={`r${hexagon.ring}-i${hexagon.index}`}
               d={hexagon.path}
               className={styles.hexagon}
-              fill="var(--color-bg-primary)"
+              fill={visibilityAndGradient.fill}
               stroke="none"
-              filter={getVisibilityFilter()}
+              filter={visibilityAndGradient.filter}
               data-ring={hexagon.ring}
               data-index={hexagon.index}
             />

@@ -1,105 +1,75 @@
 import React, { forwardRef } from 'react';
 import clsx from 'clsx';
-import Paper from '../Paper';
-import type { PaperProps } from '../Paper/Paper';
 import styles from './MessageBubble.module.css';
 
 // Avatar configuration types
 export interface AvatarConfig {
   /**
-   * Avatar image URL
+   * Avatar image URL for user messages
    */
-  src?: string;
+  image?: string;
   /**
    * Alt text for avatar image
    */
   alt?: string;
   /**
-   * Initials to display if no image is provided
+   * Initials to display if no image is provided for user messages
    */
   initials?: string;
-  /**
-   * Size of the avatar
-   * @default 'md'
-   */
-  size?: 'sm' | 'md' | 'lg';
 }
 
-// Model badge configuration
-export interface ModelBadge {
-  /**
-   * The AI model name (anthropic, openai, gemini)
-   */
-  model: 'anthropic' | 'openai' | 'gemini';
-  /**
-   * Optional custom label
-   */
-  label?: string;
-}
-
-// Message sender types
-export type MessageSender = 'user' | 'agent';
+// Message type determines styling and layout
+export type MessageType = 'user' | 'agent';
 
 // MessageBubble component props
-export interface MessageBubbleProps extends Omit<PaperProps, 'elevation' | 'padding'> {
+export interface MessageBubbleProps {
   /**
-   * Who sent the message (determines alignment and styling)
+   * Message type (determines shape, alignment, and styling)
    */
-  sender: MessageSender;
+  type: MessageType;
   
   /**
    * The message content
    */
-  children: React.ReactNode;
+  content: string;
   
   /**
-   * Avatar configuration
+   * Timestamp to display inside the bubble
+   */
+  timestamp: Date;
+  
+  /**
+   * Avatar configuration (optional for user messages)
    */
   avatar?: AvatarConfig;
   
   /**
-   * Timestamp to display above the bubble
+   * Whether the message is currently being typed (for agent messages)
+   * @default false
    */
-  timestamp?: string | Date;
+  isTyping?: boolean;
   
   /**
-   * Model badge for AI messages
+   * Message status for user messages
    */
-  modelBadge?: ModelBadge;
-  
-  /**
-   * Whether to show the timestamp
-   * @default true
-   */
-  showTimestamp?: boolean;
-  
-  /**
-   * Whether to animate the bubble entrance
-   * @default true
-   */
-  animate?: boolean;
+  status?: 'sending' | 'sent' | 'delivered' | 'read';
   
   /**
    * Custom CSS class for the message container
    */
-  containerClassName?: string;
+  className?: string;
 }
 
 /**
- * Avatar component for message bubbles
+ * User Avatar component - Perfect circle with photo or initials
  */
-const Avatar: React.FC<AvatarConfig> = ({ src, alt, initials, size = 'md' }) => {
-  const avatarClasses = clsx(
-    styles.avatar,
-    styles[`avatar-${size}`]
-  );
-
-  if (src) {
+const UserAvatar: React.FC<AvatarConfig> = ({ image, alt, initials }) => {
+  if (image) {
     return (
       <img
-        src={src}
-        alt={alt || 'Avatar'}
-        className={avatarClasses}
+        src={image}
+        alt={alt || 'User avatar'}
+        className={styles.avatarUser}
         loading="lazy"
       />
     );
@@ -107,7 +77,7 @@ const Avatar: React.FC<AvatarConfig> = ({ src, alt, initials, size = 'md' }) => 
 
   if (initials) {
     return (
-      <div className={avatarClasses} aria-label={alt || 'User avatar'}>
+      <div className={styles.avatarUser} aria-label={alt || 'User avatar'}>
         <span className={styles.avatarInitials}>
           {initials.slice(0, 2).toUpperCase()}
         </span>
@@ -115,9 +85,9 @@ const Avatar: React.FC<AvatarConfig> = ({ src, alt, initials, size = 'md' }) => 
     );
   }
 
-  // Default avatar icon
+  // Default user avatar icon
   return (
-    <div className={avatarClasses} aria-label={alt || 'Default avatar'}>
+    <div className={styles.avatarUser} aria-label={alt || 'User avatar'}>
       <svg
         className={styles.avatarIcon}
         viewBox="0 0 24 24"
@@ -131,63 +101,37 @@ const Avatar: React.FC<AvatarConfig> = ({ src, alt, initials, size = 'md' }) => 
 };
 
 /**
- * Model badge component for AI messages
+ * Agent Avatar component - Rounded square with "AI" badge
  */
-const ModelBadgeComponent: React.FC<ModelBadge> = ({ model, label }) => {
-  const badgeClasses = clsx(
-    styles.modelBadge,
-    styles[`model-${model}`]
-  );
-
-  const getModelIcon = () => {
-    switch (model) {
-      case 'anthropic':
-        return (
-          <svg viewBox="0 0 24 24" className={styles.modelIcon} aria-hidden="true">
-            <path d="M12 2L2 7v10l10 5 10-5V7l-10-5zM12 4.84L19.65 8.5 12 12.16 4.35 8.5 12 4.84zM4 10.5l7 3.5v6.16l-7-3.5V10.5zm16 0v6.16l-7 3.5V14l7-3.5z" fill="currentColor"/>
-          </svg>
-        );
-      case 'openai':
-        return (
-          <svg viewBox="0 0 24 24" className={styles.modelIcon} aria-hidden="true">
-            <path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.078 6.078 0 0 0 6.519 2.9A5.973 5.973 0 0 0 12 21.881a6.002 6.002 0 0 0 7.273-1.097 5.987 5.987 0 0 0 3.009-2.9 6.043 6.043 0 0 0-.743-7.096A5.985 5.985 0 0 0 22.282 9.821z" fill="currentColor"/>
-          </svg>
-        );
-      case 'gemini':
-        return (
-          <svg viewBox="0 0 24 24" className={styles.modelIcon} aria-hidden="true">
-            <path d="M12 2l3.09 6.26L22 9l-5.91 1.74L22 15l-6.91.74L12 22l-3.09-6.26L2 15l5.91-1.26L2 9l6.91-.74L12 2z" fill="currentColor"/>
-          </svg>
-        );
-      default:
-        return null;
-    }
-  };
-
+const AgentAvatar: React.FC = () => {
   return (
-    <div className={badgeClasses}>
-      {getModelIcon()}
-      <span className={styles.modelLabel}>
-        {label || model.charAt(0).toUpperCase() + model.slice(1)}
-      </span>
+    <div className={styles.avatarAgent} aria-label="AI Assistant">
+      <span className={styles.avatarAIText}>AI</span>
     </div>
   );
 };
 
 /**
- * Timestamp component
+ * Typing indicator for agent messages
  */
-const Timestamp: React.FC<{ timestamp: string | Date; sender: MessageSender }> = ({ 
+const TypingIndicator: React.FC = () => {
+  return (
+    <div className={styles.typingIndicator} aria-label="AI is typing">
+      <div className={styles.typingDot} />
+      <div className={styles.typingDot} />
+      <div className={styles.typingDot} />
+    </div>
+  );
+};
+
+/**
+ * Timestamp component - positioned inside bubble
+ */
+const Timestamp: React.FC<{ timestamp: Date; type: MessageType }> = ({ 
   timestamp, 
-  sender 
+  type 
 }) => {
-  const formatTimestamp = (ts: string | Date): string => {
-    const date = typeof ts === 'string' ? new Date(ts) : ts;
-    
-    if (isNaN(date.getTime())) {
-      return typeof ts === 'string' ? ts : '';
-    }
-    
+  const formatTimestamp = (date: Date): string => {
     return new Intl.DateTimeFormat('en-US', {
       hour: 'numeric',
       minute: '2-digit',
@@ -196,125 +140,94 @@ const Timestamp: React.FC<{ timestamp: string | Date; sender: MessageSender }> =
   };
 
   const timestampClasses = clsx(
-    styles.timestamp,
-    styles[`timestamp-${sender}`]
+    styles.messageTimestamp,
+    type === 'user' ? styles.timestampUser : styles.timestampAgent
   );
 
   return (
-    <time className={timestampClasses} dateTime={timestamp.toString()}>
+    <time className={timestampClasses} dateTime={timestamp.toISOString()}>
       {formatTimestamp(timestamp)}
     </time>
   );
 };
 
 /**
- * MessageBubble - A component for displaying chat messages with avatars, timestamps, and model badges
+ * MessageBubble - A component for displaying chat messages with critical shape distinction
  * 
  * Features:
- * - User vs agent message styling (pill vs rounded rectangle)
- * - Avatar support (images or initials)
- * - Timestamp display
- * - Model badges for AI messages
- * - Theme-aware styling
- * - Smooth animations
- * - Full accessibility support
+ * - User messages: TRUE PILL SHAPE (border-radius: 999px)
+ * - Agent messages: Rounded rectangle (border-radius: 12px)
+ * - Strong neumorphic shadows for depth
+ * - Timestamps inside bubbles (user=bottom-left, agent=bottom-right)
+ * - User avatars: 40px circle with photo/initials
+ * - Agent avatars: 40px rounded square with "AI" badge
+ * - Clean, simplified design
  * 
  * @example
  * ```tsx
  * // User message
  * <MessageBubble 
- *   sender="user"
+ *   type="user"
+ *   content="Hello, how are you?"
+ *   timestamp={new Date()}
  *   avatar={{ initials: "JD" }}
- *   timestamp={new Date()}
- * >
- *   Hello, how are you?
- * </MessageBubble>
+ * />
  * 
- * // Agent message with model badge
+ * // Agent message
  * <MessageBubble 
- *   sender="agent"
- *   avatar={{ src: "/ai-avatar.png", alt: "AI Assistant" }}
+ *   type="agent"
+ *   content="I'm doing well, thank you!"
  *   timestamp={new Date()}
- *   modelBadge={{ model: "anthropic", label: "Claude" }}
- * >
- *   I'm doing well, thank you for asking!
- * </MessageBubble>
+ * />
  * ```
  */
 export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
   (
     {
-      sender,
-      children,
-      avatar,
+      type,
+      content,
       timestamp,
-      modelBadge,
-      showTimestamp = true,
-      animate = true,
-      containerClassName,
+      avatar,
+      isTyping = false,
+      status,
       className,
-      ...restProps
     },
     ref
   ) => {
     const containerClasses = clsx(
       styles.messageContainer,
-      styles[`container-${sender}`],
-      {
-        [styles.animate]: animate,
-      },
-      containerClassName
+      styles[`messageContainer--${type}`],
+      className
     );
 
     const bubbleClasses = clsx(
       styles.messageBubble,
-      styles[`bubble-${sender}`],
-      className
+      styles[`messageBubble--${type}`]
     );
-
-    // Determine Paper elevation based on sender
-    const elevation = sender === 'user' ? 'raised' : 'recessed';
 
     return (
       <div className={containerClasses} ref={ref}>
-        {/* Timestamp */}
-        {showTimestamp && timestamp && (
-          <Timestamp timestamp={timestamp} sender={sender} />
+        {/* Agent avatar on left */}
+        {type === 'agent' && (
+          <AgentAvatar />
         )}
         
-        {/* Model badge for agent messages */}
-        {sender === 'agent' && modelBadge && (
-          <ModelBadgeComponent {...modelBadge} />
-        )}
-        
-        {/* Message row with avatar and bubble */}
-        <div className={styles.messageRow}>
-          {/* Avatar (left side for agent, right side for user) */}
-          {avatar && sender === 'agent' && (
-            <div className={styles.avatarContainer}>
-              <Avatar {...avatar} />
-            </div>
-          )}
-          
-          {/* Message bubble */}
-          <Paper
-            className={bubbleClasses}
-            elevation={elevation}
-            padding="md"
-            role="log"
-            aria-live="polite"
-            {...restProps}
-          >
-            {children}
-          </Paper>
-          
-          {/* Avatar (right side for user) */}
-          {avatar && sender === 'user' && (
-            <div className={styles.avatarContainer}>
-              <Avatar {...avatar} />
-            </div>
-          )}
+        {/* Message bubble */}
+        <div 
+          className={bubbleClasses}
+          role="article"
+          aria-live="polite"
+        >
+          <div className={styles.messageContent}>
+            {isTyping ? <TypingIndicator /> : content}
+          </div>
+          <Timestamp timestamp={timestamp} type={type} />
         </div>
+        
+        {/* User avatar on right */}
+        {type === 'user' && avatar && (
+          <UserAvatar {...avatar} />
+        )}
       </div>
     );
   }

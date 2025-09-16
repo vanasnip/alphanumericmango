@@ -183,6 +183,34 @@ export const HexagonGrid = memo<HexagonGridProps>(({
         <feDropShadow dx="-4" dy="-4" stdDeviation="10" floodOpacity="1" floodColor="white" />
       </filter>,
       
+      // Deep hole with inner shadow - appears punched through the paper
+      <filter key="shadow-hole-deep" id="shadow-hole-deep" x="-50%" y="-50%" width="200%" height="200%">
+        {/* Strong inner shadow for hole effect */}
+        <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur"/>
+        <feOffset in="blur" dx="2" dy="2" result="offsetBlur"/>
+        <feFlood floodColor="rgba(0,0,0,0.9)" result="color"/>
+        <feComposite in="color" in2="offsetBlur" operator="in" result="shadow"/>
+        <feComposite in="shadow" in2="SourceAlpha" operator="out" result="innerShadow"/>
+        <feDropShadow dx="-1" dy="-1" stdDeviation="2" floodOpacity="0.3" floodColor="white" />
+        <feMerge>
+          <feMergeNode in="innerShadow"/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+      </filter>,
+      
+      // Medium hole - less pronounced inner shadow
+      <filter key="shadow-hole-medium" id="shadow-hole-medium" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur in="SourceAlpha" stdDeviation="6" result="blur"/>
+        <feOffset in="blur" dx="0" dy="0" result="offsetBlur"/>
+        <feFlood floodColor="rgba(0,0,0,0.6)" result="color"/>
+        <feComposite in="color" in2="offsetBlur" operator="in" result="shadow"/>
+        <feComposite in="shadow" in2="SourceAlpha" operator="out" result="innerShadow"/>
+        <feMerge>
+          <feMergeNode in="innerShadow"/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+      </filter>,
+      
       // Faint filter - subtle shadow
       <filter key="shadow-faint" id="shadow-faint" x="-50%" y="-50%" width="200%" height="200%">
         <feDropShadow dx="-2" dy="-2" stdDeviation="8" floodOpacity="0.15" floodColor="rgba(0,0,0,0.8)" />
@@ -250,14 +278,15 @@ export const HexagonGrid = memo<HexagonGridProps>(({
               return 'url(#shadow-crater-center)'; // Deep depression in center
             }
             
-            // Ring 1 forms the elevated rim with height variations for contrast
+            // Ring 1 forms the elevated rim with occasional holes for contrast
             if (hexagon.ring === 1) {
-              // Vary heights within ring 1 for more dramatic contrast
               const variation = Math.random();
-              if (variation > 0.6) {
-                return 'url(#shadow-rim-elevated-high)'; // 40% highest elevation
+              if (variation > 0.85) {
+                return 'url(#shadow-hole-deep)'; // 15% appear as holes
+              } else if (variation > 0.5) {
+                return 'url(#shadow-rim-elevated-high)'; // 35% highest elevation
               } else {
-                return 'url(#shadow-rim-elevated)'; // 60% normal elevation
+                return 'url(#shadow-rim-elevated)'; // 50% normal elevation
               }
             }
             
@@ -266,24 +295,32 @@ export const HexagonGrid = memo<HexagonGridProps>(({
               return 'url(#shadow-faint)';
             }
             
-            // Ring 2: More dramatic variations in height
+            // Ring 2: Mix of elevations and occasional holes
             if (hexagon.ring === 2) {
               const variation = Math.random();
-              if (variation > 0.7) {
+              if (variation > 0.9) {
+                return 'url(#shadow-hole-medium)'; // 10% appear as medium holes
+              } else if (variation > 0.8) {
+                return 'url(#shadow-hole-deep)'; // 10% appear as deep holes
+              } else if (variation > 0.5) {
                 return 'url(#shadow-extrusion)'; // 30% raised
               } else {
-                return 'url(#shadow-depression)'; // 70% depressed
+                return 'url(#shadow-depression)'; // 50% depressed
               }
             }
             
-            // Ring 3 (outer): Strong variations for dramatic landscape
+            // Ring 3 (outer): Strong variations with more holes for dramatic landscape
             const outerVariation = Math.random();
-            if (outerVariation > 0.8) {
-              return 'url(#shadow-rim-elevated)'; // 20% strongly raised
-            } else if (outerVariation > 0.4) {
-              return 'url(#shadow-depression)'; // 40% depressed
+            if (outerVariation > 0.85) {
+              return 'url(#shadow-hole-deep)'; // 15% deep holes
+            } else if (outerVariation > 0.75) {
+              return 'url(#shadow-hole-medium)'; // 10% medium holes
+            } else if (outerVariation > 0.6) {
+              return 'url(#shadow-rim-elevated)'; // 15% strongly raised
+            } else if (outerVariation > 0.3) {
+              return 'url(#shadow-depression)'; // 30% depressed
             } else {
-              return 'url(#shadow-extrusion)'; // 40% slightly raised
+              return 'url(#shadow-extrusion)'; // 30% slightly raised
             }
           };
 

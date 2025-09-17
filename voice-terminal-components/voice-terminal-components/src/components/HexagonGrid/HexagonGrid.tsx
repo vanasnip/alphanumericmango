@@ -148,47 +148,94 @@ export const HexagonGrid = memo<HexagonGridProps>(({
     height: `${size}px`,
   } as React.CSSProperties;
 
-  // Generate gradients for different elevation states
+  // Generate gradients for different elevation states with 60-20-5 distribution
   const generateGradients = () => {
     return [
-      // Crater/depression gradient - darker center fading outward
-      <radialGradient key="gradient-crater" id="gradient-crater">
-        <stop offset="0%" stopColor="var(--color-bg-primary)" stopOpacity={0.85 * gradientIntensity} />
-        <stop offset="100%" stopColor="var(--color-bg-primary)" stopOpacity="1" />
-      </radialGradient>,
+      // Base gradient - 60% background, 20% shadow, 5% light (standard distribution)
+      <linearGradient key="gradient-base" id="gradient-base" x1="0%" y1="100%" x2="100%" y2="0%">
+        {/* Shadow side (20%) */}
+        <stop offset="0%" stopColor="black" stopOpacity={0.08 * gradientIntensity} />
+        <stop offset="20%" stopColor="black" stopOpacity={0.08 * gradientIntensity} />
+        {/* Shadow transition (7.5%) */}
+        <stop offset="27.5%" stopColor="var(--color-bg-primary)" stopOpacity="1" />
+        {/* Base zone matching background (60%) */}
+        <stop offset="27.5%" stopColor="var(--color-bg-primary)" stopOpacity="1" />
+        <stop offset="87.5%" stopColor="var(--color-bg-primary)" stopOpacity="1" />
+        {/* Light transition (7.5%) */}
+        <stop offset="95%" stopColor="white" stopOpacity={0.05 * gradientIntensity} />
+        {/* Light side (5%) */}
+        <stop offset="100%" stopColor="white" stopOpacity={0.05 * gradientIntensity} />
+      </linearGradient>,
       
-      // Elevated gradient - lighter center fading to normal
-      <radialGradient key="gradient-elevated" id="gradient-elevated">
-        <stop offset="0%" stopColor="var(--color-bg-primary)" stopOpacity="1" />
-        <stop offset="70%" stopColor="var(--color-bg-primary)" stopOpacity="0.95" />
-        <stop offset="100%" stopColor="var(--color-bg-primary)" stopOpacity="0.92" />
-      </radialGradient>,
+      // Crater gradient - 30% shadow, 50% base, 5% light (deeper shadow)
+      <linearGradient key="gradient-crater" id="gradient-crater" x1="0%" y1="100%" x2="100%" y2="0%">
+        <stop offset="0%" stopColor="black" stopOpacity={0.12 * gradientIntensity} />
+        <stop offset="30%" stopColor="black" stopOpacity={0.12 * gradientIntensity} />
+        <stop offset="37.5%" stopColor="var(--color-bg-primary)" stopOpacity="1" />
+        <stop offset="87.5%" stopColor="var(--color-bg-primary)" stopOpacity="1" />
+        <stop offset="95%" stopColor="white" stopOpacity={0.03 * gradientIntensity} />
+        <stop offset="100%" stopColor="white" stopOpacity={0.03 * gradientIntensity} />
+      </linearGradient>,
       
-      // High elevation gradient - even lighter
-      <radialGradient key="gradient-elevated-high" id="gradient-elevated-high">
-        <stop offset="0%" stopColor="white" stopOpacity={0.08 * gradientIntensity} />
-        <stop offset="50%" stopColor="white" stopOpacity={0.04 * gradientIntensity} />
-        <stop offset="100%" stopColor="var(--color-bg-primary)" stopOpacity={1 - (0.06 * gradientIntensity)} />
-      </radialGradient>,
+      // Elevated gradient - 15% shadow, 60% base, 10% light (more light)
+      <linearGradient key="gradient-elevated" id="gradient-elevated" x1="0%" y1="100%" x2="100%" y2="0%">
+        <stop offset="0%" stopColor="black" stopOpacity={0.06 * gradientIntensity} />
+        <stop offset="15%" stopColor="black" stopOpacity={0.06 * gradientIntensity} />
+        <stop offset="22.5%" stopColor="var(--color-bg-primary)" stopOpacity="1" />
+        <stop offset="82.5%" stopColor="var(--color-bg-primary)" stopOpacity="1" />
+        <stop offset="90%" stopColor="white" stopOpacity={0.1 * gradientIntensity} />
+        <stop offset="100%" stopColor="white" stopOpacity={0.1 * gradientIntensity} />
+      </linearGradient>,
       
-      // Hole gradient - very dark center
-      <radialGradient key="gradient-hole" id="gradient-hole">
+      // High elevation gradient - 10% shadow, 60% base, 15% light (much more light)
+      <linearGradient key="gradient-elevated-high" id="gradient-elevated-high" x1="0%" y1="100%" x2="100%" y2="0%">
+        <stop offset="0%" stopColor="black" stopOpacity={0.04 * gradientIntensity} />
+        <stop offset="10%" stopColor="black" stopOpacity={0.04 * gradientIntensity} />
+        <stop offset="17.5%" stopColor="var(--color-bg-primary)" stopOpacity="1" />
+        <stop offset="77.5%" stopColor="var(--color-bg-primary)" stopOpacity="1" />
+        <stop offset="85%" stopColor="white" stopOpacity={0.15 * gradientIntensity} />
+        <stop offset="100%" stopColor="white" stopOpacity={0.15 * gradientIntensity} />
+      </linearGradient>,
+      
+      // Hole gradient - 35% shadow, 45% base, 5% light (deepest shadow)
+      <linearGradient key="gradient-hole" id="gradient-hole" x1="0%" y1="100%" x2="100%" y2="0%">
         <stop offset="0%" stopColor="black" stopOpacity={0.15 * gradientIntensity} />
-        <stop offset="60%" stopColor="black" stopOpacity={0.08 * gradientIntensity} />
-        <stop offset="100%" stopColor="var(--color-bg-primary)" stopOpacity={1 - (0.1 * gradientIntensity)} />
-      </radialGradient>,
+        <stop offset="35%" stopColor="black" stopOpacity={0.15 * gradientIntensity} />
+        <stop offset="42.5%" stopColor="var(--color-bg-primary)" stopOpacity="1" />
+        <stop offset="87.5%" stopColor="var(--color-bg-primary)" stopOpacity="1" />
+        <stop offset="95%" stopColor="white" stopOpacity={0.02 * gradientIntensity} />
+        <stop offset="100%" stopColor="white" stopOpacity={0.02 * gradientIntensity} />
+      </linearGradient>,
       
-      // Depression gradient - subtle darkening
-      <radialGradient key="gradient-depression" id="gradient-depression">
-        <stop offset="0%" stopColor="black" stopOpacity={0.05 * gradientIntensity} />
-        <stop offset="100%" stopColor="var(--color-bg-primary)" stopOpacity={1 - (0.03 * gradientIntensity)} />
-      </radialGradient>,
+      // Depression gradient - 25% shadow, 55% base, 5% light (moderate shadow)
+      <linearGradient key="gradient-depression" id="gradient-depression" x1="0%" y1="100%" x2="100%" y2="0%">
+        <stop offset="0%" stopColor="black" stopOpacity={0.1 * gradientIntensity} />
+        <stop offset="25%" stopColor="black" stopOpacity={0.1 * gradientIntensity} />
+        <stop offset="32.5%" stopColor="var(--color-bg-primary)" stopOpacity="1" />
+        <stop offset="87.5%" stopColor="var(--color-bg-primary)" stopOpacity="1" />
+        <stop offset="95%" stopColor="white" stopOpacity={0.03 * gradientIntensity} />
+        <stop offset="100%" stopColor="white" stopOpacity={0.03 * gradientIntensity} />
+      </linearGradient>,
       
-      // Extrusion gradient - subtle lightening
-      <radialGradient key="gradient-extrusion" id="gradient-extrusion">
-        <stop offset="0%" stopColor="white" stopOpacity={0.03 * gradientIntensity} />
-        <stop offset="100%" stopColor="var(--color-bg-primary)" stopOpacity={1 - (0.02 * gradientIntensity)} />
-      </radialGradient>,
+      // Extrusion gradient - 18% shadow, 60% base, 7% light (subtle variation)
+      <linearGradient key="gradient-extrusion" id="gradient-extrusion" x1="0%" y1="100%" x2="100%" y2="0%">
+        <stop offset="0%" stopColor="black" stopOpacity={0.07 * gradientIntensity} />
+        <stop offset="18%" stopColor="black" stopOpacity={0.07 * gradientIntensity} />
+        <stop offset="25.5%" stopColor="var(--color-bg-primary)" stopOpacity="1" />
+        <stop offset="85.5%" stopColor="var(--color-bg-primary)" stopOpacity="1" />
+        <stop offset="93%" stopColor="white" stopOpacity={0.07 * gradientIntensity} />
+        <stop offset="100%" stopColor="white" stopOpacity={0.07 * gradientIntensity} />
+      </linearGradient>,
+      
+      // Outer ring gradients - much subtler (40% intensity)
+      <linearGradient key="gradient-outer-subtle" id="gradient-outer-subtle" x1="0%" y1="100%" x2="100%" y2="0%">
+        <stop offset="0%" stopColor="black" stopOpacity={0.03 * gradientIntensity} />
+        <stop offset="20%" stopColor="black" stopOpacity={0.03 * gradientIntensity} />
+        <stop offset="27.5%" stopColor="var(--color-bg-primary)" stopOpacity="1" />
+        <stop offset="87.5%" stopColor="var(--color-bg-primary)" stopOpacity="1" />
+        <stop offset="95%" stopColor="white" stopOpacity={0.02 * gradientIntensity} />
+        <stop offset="100%" stopColor="white" stopOpacity={0.02 * gradientIntensity} />
+      </linearGradient>,
     ];
   };
 
@@ -481,10 +528,10 @@ export const HexagonGrid = memo<HexagonGridProps>(({
             
             // For very quiet state (low amplitude), outer rings get subtle shadows
             if (amplitude <= 15 && hexagon.ring >= 2) {
-              return { filter: 'url(#shadow-faint)', fill: 'var(--color-bg-primary)' };
+              return { filter: 'url(#shadow-faint)', fill: 'url(#gradient-outer-subtle)' };
             }
             
-            // Ring 2: Mix of elevations and occasional holes
+            // Ring 2: Mix of elevations and occasional holes with base gradient
             if (hexagon.ring === 2) {
               const variation = Math.random();
               if (variation > 0.9) {
@@ -492,24 +539,24 @@ export const HexagonGrid = memo<HexagonGridProps>(({
               } else if (variation > 0.8) {
                 return { filter: 'url(#shadow-hole-deep)', fill: 'url(#gradient-hole)' }; // 10% appear as deep holes
               } else if (variation > 0.5) {
-                return { filter: 'url(#shadow-extrusion)', fill: 'url(#gradient-extrusion)' }; // 30% raised
+                return { filter: 'url(#shadow-extrusion)', fill: 'url(#gradient-base)' }; // 30% raised with base gradient
               } else {
-                return { filter: 'url(#shadow-depression)', fill: 'url(#gradient-depression)' }; // 50% depressed
+                return { filter: 'url(#shadow-depression)', fill: 'url(#gradient-base)' }; // 50% depressed with base gradient
               }
             }
             
-            // Ring 3 (outer): Subtle variations closer to paper surface
+            // Ring 3 (outer): Very subtle variations with outer-subtle gradient
             const outerVariation = Math.random();
             if (outerVariation > 0.85) {
               return { filter: 'url(#shadow-hole-medium)', fill: 'url(#gradient-hole)' }; // 15% medium holes (not deep)
             } else if (outerVariation > 0.75) {
               return { filter: 'url(#shadow-hole-medium)', fill: 'url(#gradient-hole)' }; // 10% medium holes
             } else if (outerVariation > 0.6) {
-              return { filter: 'url(#shadow-extrusion-outer)', fill: 'url(#gradient-elevated)' }; // 15% gently raised with subtle glow
+              return { filter: 'url(#shadow-extrusion-outer)', fill: 'url(#gradient-outer-subtle)' }; // 15% gently raised with subtle gradient
             } else if (outerVariation > 0.3) {
-              return { filter: 'url(#shadow-depression-outer)', fill: 'url(#gradient-depression)' }; // 30% gently depressed with light strokes
+              return { filter: 'url(#shadow-depression-outer)', fill: 'url(#gradient-outer-subtle)' }; // 30% gently depressed with subtle gradient
             } else {
-              return { filter: 'url(#shadow-extrusion-outer)', fill: 'url(#gradient-extrusion)' }; // 30% slightly raised with subtle effects
+              return { filter: 'url(#shadow-extrusion-outer)', fill: 'url(#gradient-outer-subtle)' }; // 30% slightly raised with subtle gradient
             }
           };
 

@@ -575,6 +575,33 @@ export const FlatAppearance: Story = {
   },
 };
 
+// New gradient distribution story with 60-20-5 configuration
+export const SubtleGradientDistribution: Story = {
+  args: {
+    amplitude: 50,
+    size: 250,
+    blurIntensity: 1.0,
+    strokeIntensity: 0.5,
+    gradientIntensity: 1.0,
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: `
+Showcases the new gradient distribution system with:
+- **60%** base color matching background
+- **20%** shadow on one side
+- **5%** light highlight on the other
+- **15%** smooth transition zones
+
+The gradients are linear (bottom-left to top-right) creating a directional lighting effect.
+Outer rings use subtler gradients for a more natural appearance.
+        `,
+      },
+    },
+  },
+};
+
 export const SizeComparison: Story = {
   render: () => (
     <div style={{ display: 'flex', gap: '32px', alignItems: 'center', flexWrap: 'wrap' }}>

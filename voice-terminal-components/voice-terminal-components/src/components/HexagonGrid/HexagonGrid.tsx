@@ -21,6 +21,12 @@ export interface HexagonGridProps {
   animationSpeed?: number;
   /** Total size of the grid in pixels (100-250px recommended) */
   size?: number;
+  /** Shadow blur intensity (0.5 = sharper, 2.0 = softer) */
+  blurIntensity?: number;
+  /** Stroke intensity (0 = no strokes, 1 = normal, 2 = strong) */
+  strokeIntensity?: number;
+  /** Gradient intensity (0 = no gradients, 1 = normal, 2 = strong) */
+  gradientIntensity?: number;
 }
 
 interface HexagonData {
@@ -88,9 +94,12 @@ export const HexagonGrid = memo<HexagonGridProps>(({
   className,
   animationSpeed = 1,
   size = 200, // Default size of 200px
+  blurIntensity = 1.2, // Slightly softer shadows by default
+  strokeIntensity = 1, // Normal stroke intensity
+  gradientIntensity = 1, // Normal gradient intensity
 }) => {
-  // Blur multiplier for easy shadow softening - increase for softer shadows
-  const blurMultiplier = 1.1; // Adjust between 0.5 (sharper) to 2.0 (softer)
+  // Use blur intensity prop for shadow softening
+  const blurMultiplier = blurIntensity;
   /*
    * AMPLITUDE-PROBABILITY MAPPING SYSTEM:
    * 
@@ -144,7 +153,7 @@ export const HexagonGrid = memo<HexagonGridProps>(({
     return [
       // Crater/depression gradient - darker center fading outward
       <radialGradient key="gradient-crater" id="gradient-crater">
-        <stop offset="0%" stopColor="var(--color-bg-primary)" stopOpacity="0.85" />
+        <stop offset="0%" stopColor="var(--color-bg-primary)" stopOpacity={0.85 * gradientIntensity} />
         <stop offset="100%" stopColor="var(--color-bg-primary)" stopOpacity="1" />
       </radialGradient>,
       
@@ -157,28 +166,28 @@ export const HexagonGrid = memo<HexagonGridProps>(({
       
       // High elevation gradient - even lighter
       <radialGradient key="gradient-elevated-high" id="gradient-elevated-high">
-        <stop offset="0%" stopColor="white" stopOpacity="0.08" />
-        <stop offset="50%" stopColor="white" stopOpacity="0.04" />
-        <stop offset="100%" stopColor="var(--color-bg-primary)" stopOpacity="0.94" />
+        <stop offset="0%" stopColor="white" stopOpacity={0.08 * gradientIntensity} />
+        <stop offset="50%" stopColor="white" stopOpacity={0.04 * gradientIntensity} />
+        <stop offset="100%" stopColor="var(--color-bg-primary)" stopOpacity={1 - (0.06 * gradientIntensity)} />
       </radialGradient>,
       
       // Hole gradient - very dark center
       <radialGradient key="gradient-hole" id="gradient-hole">
-        <stop offset="0%" stopColor="black" stopOpacity="0.15" />
-        <stop offset="60%" stopColor="black" stopOpacity="0.08" />
-        <stop offset="100%" stopColor="var(--color-bg-primary)" stopOpacity="0.9" />
+        <stop offset="0%" stopColor="black" stopOpacity={0.15 * gradientIntensity} />
+        <stop offset="60%" stopColor="black" stopOpacity={0.08 * gradientIntensity} />
+        <stop offset="100%" stopColor="var(--color-bg-primary)" stopOpacity={1 - (0.1 * gradientIntensity)} />
       </radialGradient>,
       
       // Depression gradient - subtle darkening
       <radialGradient key="gradient-depression" id="gradient-depression">
-        <stop offset="0%" stopColor="black" stopOpacity="0.05" />
-        <stop offset="100%" stopColor="var(--color-bg-primary)" stopOpacity="0.97" />
+        <stop offset="0%" stopColor="black" stopOpacity={0.05 * gradientIntensity} />
+        <stop offset="100%" stopColor="var(--color-bg-primary)" stopOpacity={1 - (0.03 * gradientIntensity)} />
       </radialGradient>,
       
       // Extrusion gradient - subtle lightening
       <radialGradient key="gradient-extrusion" id="gradient-extrusion">
-        <stop offset="0%" stopColor="white" stopOpacity="0.03" />
-        <stop offset="100%" stopColor="var(--color-bg-primary)" stopOpacity="0.98" />
+        <stop offset="0%" stopColor="white" stopOpacity={0.03 * gradientIntensity} />
+        <stop offset="100%" stopColor="var(--color-bg-primary)" stopOpacity={1 - (0.02 * gradientIntensity)} />
       </radialGradient>,
     ];
   };
@@ -195,7 +204,7 @@ export const HexagonGrid = memo<HexagonGridProps>(({
           values="0 0 0 0 0
                   0 0 0 0 0
                   0 0 0 0 0
-                  0 0 0 0.1 0" />
+                  0 0 0 ${0.1 * strokeIntensity} 0" />
         <feMerge result="withStroke">
           <feMergeNode in="darkStroke" />
           <feMergeNode in="SourceGraphic" />
@@ -204,6 +213,26 @@ export const HexagonGrid = memo<HexagonGridProps>(({
         <feDropShadow in="withStroke" dx="-2" dy="-2" stdDeviation={2 * blurMultiplier} floodOpacity="0.7" floodColor="rgba(0,0,0,1)" />
         <feDropShadow dx="-4" dy="-4" stdDeviation={12 * blurMultiplier} floodOpacity="0.4" floodColor="rgba(0,0,0,0.9)" />
         <feDropShadow dx="3" dy="3" stdDeviation={8 * blurMultiplier} floodOpacity="0.9" floodColor="white" />
+      </filter>,
+      
+      // Depression filter for outer rings - much lighter strokes (20% lighter)
+      <filter key="shadow-depression-outer" id="shadow-depression-outer" x="-50%" y="-50%" width="200%" height="200%">
+        {/* Much lighter edge stroke for outer rings */}
+        <feMorphology in="SourceAlpha" operator="dilate" radius="0.3" result="dilated" />
+        <feGaussianBlur in="dilated" stdDeviation="0.7" result="blurredOutline" />
+        <feColorMatrix in="blurredOutline" type="matrix" result="darkStroke"
+          values="0 0 0 0 0
+                  0 0 0 0 0
+                  0 0 0 0 0
+                  0 0 0 ${0.02 * strokeIntensity} 0" />
+        <feMerge result="withStroke">
+          <feMergeNode in="darkStroke" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+        {/* Softer shadows for outer regions */}
+        <feDropShadow in="withStroke" dx="-2" dy="-2" stdDeviation={3 * blurMultiplier} floodOpacity="0.5" floodColor="rgba(0,0,0,0.8)" />
+        <feDropShadow dx="-4" dy="-4" stdDeviation={14 * blurMultiplier} floodOpacity="0.3" floodColor="rgba(0,0,0,0.7)" />
+        <feDropShadow dx="3" dy="3" stdDeviation={10 * blurMultiplier} floodOpacity="0.7" floodColor="white" />
       </filter>,
       
       // Extrusion filter - sharper contrast with dark edge
@@ -215,7 +244,7 @@ export const HexagonGrid = memo<HexagonGridProps>(({
           values="0 0 0 0 1
                   0 0 0 0 1
                   0 0 0 0 1
-                  0 0 0 0.3 0" />
+                  0 0 0 ${0.3 * strokeIntensity} 0" />
         <feMerge result="withStroke">
           <feMergeNode in="whiteGlow" />
           <feMergeNode in="SourceGraphic" />
@@ -224,6 +253,26 @@ export const HexagonGrid = memo<HexagonGridProps>(({
         <feDropShadow in="withStroke" dx="2" dy="2" stdDeviation={1 * blurMultiplier} floodOpacity="0.6" floodColor="rgba(0,0,0,1)" />
         <feDropShadow dx="4" dy="4" stdDeviation={10 * blurMultiplier} floodOpacity="0.35" floodColor="rgba(0,0,0,0.8)" />
         <feDropShadow dx="-2" dy="-2" stdDeviation={6 * blurMultiplier} floodOpacity="0.95" floodColor="white" />
+      </filter>,
+      
+      // Extrusion filter for outer rings - subtler white glow
+      <filter key="shadow-extrusion-outer" id="shadow-extrusion-outer" x="-50%" y="-50%" width="200%" height="200%">
+        {/* Subtle white glow for outer elevated areas */}
+        <feMorphology in="SourceAlpha" operator="dilate" radius="0.5" result="dilated" />
+        <feGaussianBlur in="dilated" stdDeviation="2.5" result="blurredOutline" />
+        <feColorMatrix in="blurredOutline" type="matrix" result="whiteGlow"
+          values="0 0 0 0 1
+                  0 0 0 0 1
+                  0 0 0 0 1
+                  0 0 0 ${0.06 * strokeIntensity} 0" />
+        <feMerge result="withStroke">
+          <feMergeNode in="whiteGlow" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+        {/* Softer shadows for outer regions */}
+        <feDropShadow in="withStroke" dx="2" dy="2" stdDeviation={1.5 * blurMultiplier} floodOpacity="0.4" floodColor="rgba(0,0,0,0.8)" />
+        <feDropShadow dx="4" dy="4" stdDeviation={12 * blurMultiplier} floodOpacity="0.25" floodColor="rgba(0,0,0,0.6)" />
+        <feDropShadow dx="-2" dy="-2" stdDeviation={8 * blurMultiplier} floodOpacity="0.7" floodColor="white" />
       </filter>,
       
       // Center crater with inner shadow - deep depression with dark edges
@@ -235,7 +284,7 @@ export const HexagonGrid = memo<HexagonGridProps>(({
           values="0 0 0 0 0
                   0 0 0 0 0
                   0 0 0 0 0
-                  0 0 0 0.15 0" />
+                  0 0 0 ${0.15 * strokeIntensity} 0" />
         {/* Inner shadow effect */}
         <feGaussianBlur in="SourceAlpha" stdDeviation={8 * blurMultiplier} result="blur"/>
         <feOffset in="blur" dx="0" dy="0" result="offsetBlur"/>
@@ -449,18 +498,18 @@ export const HexagonGrid = memo<HexagonGridProps>(({
               }
             }
             
-            // Ring 3 (outer): Strong variations with more holes for dramatic landscape
+            // Ring 3 (outer): Subtle variations closer to paper surface
             const outerVariation = Math.random();
             if (outerVariation > 0.85) {
-              return { filter: 'url(#shadow-hole-deep)', fill: 'url(#gradient-hole)' }; // 15% deep holes
+              return { filter: 'url(#shadow-hole-medium)', fill: 'url(#gradient-hole)' }; // 15% medium holes (not deep)
             } else if (outerVariation > 0.75) {
               return { filter: 'url(#shadow-hole-medium)', fill: 'url(#gradient-hole)' }; // 10% medium holes
             } else if (outerVariation > 0.6) {
-              return { filter: 'url(#shadow-rim-elevated)', fill: 'url(#gradient-elevated)' }; // 15% strongly raised
+              return { filter: 'url(#shadow-extrusion-outer)', fill: 'url(#gradient-elevated)' }; // 15% gently raised with subtle glow
             } else if (outerVariation > 0.3) {
-              return { filter: 'url(#shadow-depression)', fill: 'url(#gradient-depression)' }; // 30% depressed
+              return { filter: 'url(#shadow-depression-outer)', fill: 'url(#gradient-depression)' }; // 30% gently depressed with light strokes
             } else {
-              return { filter: 'url(#shadow-extrusion)', fill: 'url(#gradient-extrusion)' }; // 30% slightly raised
+              return { filter: 'url(#shadow-extrusion-outer)', fill: 'url(#gradient-extrusion)' }; // 30% slightly raised with subtle effects
             }
           };
 

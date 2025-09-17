@@ -4,6 +4,7 @@
 export { default as ThemedButton } from './ThemedButton.svelte';
 export { default as ThemedInput } from './ThemedInput.svelte';
 export { default as ThemedModal } from './ThemedModal.svelte';
+export { default as ThemedCard } from './ThemedCard.svelte';
 export { default as VoiceIndicator } from './VoiceIndicator.svelte';
 
 // Re-export theme utilities and stores

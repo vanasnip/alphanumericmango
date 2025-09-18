@@ -1,0 +1,2352 @@
+openapi: 3.0.3
+info:
+  title: AlphanumericMango API
+  version: 2.0.0
+  description: |
+    Production-ready API for the AlphanumericMango voice-controlled terminal system.
+    
+    ## Security Architecture
+    
+    This API implements OAuth 2.0 + OpenID Connect for authentication with the following security features:
+    - JWT Bearer tokens with proper validation and refresh mechanisms
+    - API key authentication for service-to-service communication
+    - Comprehensive rate limiting with dynamic behavior-based adjustments
+    - Multi-factor authentication (MFA) integration
+    - Role-based access control (RBAC) with fine-grained permissions
+    - Advanced threat detection and abuse prevention
+    
+    ## Authentication Flows
+    
+    ### OAuth 2.0 Authorization Code Flow
+    1. Redirect user to `/auth/authorize` with appropriate parameters
+    2. User authenticates and provides consent
+    3. Exchange authorization code for access/refresh tokens at `/auth/token`
+    4. Use access token in `Authorization: Bearer <token>` header
+    
+    ### API Key Authentication
+    For service-to-service communication, use API keys in the `X-API-Key` header.
+    
+    ## Rate Limiting
+    
+    All endpoints implement sophisticated rate limiting:
+    - Per-user limits: 1000 requests/hour, 60 requests/minute
+    - Per-endpoint limits vary by operation complexity
+    - Burst allowance: 10 additional requests for brief spikes
+    - Dynamic limits based on user behavior and trust score
+    
+    Rate limit information is returned in response headers:
+    - `X-RateLimit-Limit`: Maximum requests allowed
+    - `X-RateLimit-Remaining`: Requests remaining in current window
+    - `X-RateLimit-Reset`: Unix timestamp when limit resets
+    - `X-RateLimit-RetryAfter`: Seconds to wait if rate limited
+    
+    ## Error Handling
+    
+    All errors follow RFC 7807 Problem Details format with additional security context.
+    
+  contact:
+    name: API Support
+    email: api-support@alphanumericmango.com
+  license:
+    name: Proprietary
+    url: https://alphanumericmango.com/license
+
+servers:
+  - url: https://api.alphanumericmango.com/v2
+    description: Production server
+  - url: https://staging-api.alphanumericmango.com/v2
+    description: Staging server
+  - url: https://dev-api.alphanumericmango.com/v2
+    description: Development server
+
+security:
+  - OAuth2:
+      - projects:read
+      - projects:write
+      - voice:control
+      - system:read
+  - ApiKeyAuth: []
+  - BearerAuth: []
+
+paths:
+  # Authentication & Authorization Endpoints
+  /auth/authorize:
+    get:
+      tags:
+        - Authentication
+      summary: OAuth 2.0 Authorization Endpoint
+      description: |
+        Initiates OAuth 2.0 authorization flow. Redirects user to consent page
+        and returns authorization code on approval.
+      parameters:
+        - name: response_type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [code]
+          description: OAuth 2.0 response type
+        - name: client_id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: OAuth 2.0 client identifier
+        - name: redirect_uri
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uri
+          description: Callback URL for authorization response
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Space-delimited list of requested scopes
+          example: "projects:read projects:write voice:control"
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Opaque value for CSRF protection
+        - name: code_challenge
+          in: query
+          required: false
+          schema:
+            type: string
+          description: PKCE code challenge
+        - name: code_challenge_method
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [S256]
+          description: PKCE code challenge method
+        - name: nonce
+          in: query
+          required: false
+          schema:
+            type: string
+          description: OpenID Connect nonce for ID token
+      responses:
+        '302':
+          description: Redirect to client with authorization code
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+              description: Redirect URL with code and state parameters
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      security: []
+
+  /auth/token:
+    post:
+      tags:
+        - Authentication
+      summary: OAuth 2.0 Token Endpoint
+      description: |
+        Exchanges authorization code for access token, refresh token, and ID token.
+        Also supports refresh token grant for token renewal.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/AuthorizationCodeTokenRequest'
+                - $ref: '#/components/schemas/RefreshTokenRequest'
+                - $ref: '#/components/schemas/ClientCredentialsRequest'
+      responses:
+        '200':
+          description: Token response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      security: []
+
+  /auth/revoke:
+    post:
+      tags:
+        - Authentication
+      summary: Token Revocation Endpoint
+      description: Revokes access or refresh tokens
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+                  description: Token to revoke
+                token_type_hint:
+                  type: string
+                  enum: [access_token, refresh_token]
+                  description: Hint about token type
+      responses:
+        '200':
+          description: Token revoked successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      security:
+        - BearerAuth: []
+
+  /auth/userinfo:
+    get:
+      tags:
+        - Authentication
+      summary: OpenID Connect UserInfo Endpoint
+      description: Returns user information claims
+      responses:
+        '200':
+          description: User information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserInfo'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      security:
+        - BearerAuth: [openid, profile, email]
+
+  # Projects API
+  /projects:
+    get:
+      tags:
+        - Projects
+      summary: List Projects
+      description: |
+        Retrieve a paginated list of projects with advanced filtering, sorting, and search capabilities.
+        Results are filtered based on user permissions and access control policies.
+      parameters:
+        - $ref: '#/components/parameters/PageParameter'
+        - $ref: '#/components/parameters/LimitParameter'
+        - $ref: '#/components/parameters/CursorParameter'
+        - name: search
+          in: query
+          description: Search query for project name, description, or tags
+          schema:
+            type: string
+            maxLength: 200
+          example: "react typescript"
+        - name: status
+          in: query
+          description: Filter by project status
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/ProjectStatus'
+          style: form
+          explode: false
+        - name: type
+          in: query
+          description: Filter by project type
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/ProjectType'
+          style: form
+          explode: false
+        - name: owner
+          in: query
+          description: Filter by project owner ID
+          schema:
+            type: string
+            format: uuid
+        - name: tags
+          in: query
+          description: Filter by project tags
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: false
+        - name: created_after
+          in: query
+          description: Filter projects created after this date
+          schema:
+            type: string
+            format: date-time
+        - name: created_before
+          in: query
+          description: Filter projects created before this date
+          schema:
+            type: string
+            format: date-time
+        - name: sort
+          in: query
+          description: Sort fields and directions
+          schema:
+            type: array
+            items:
+              type: string
+              enum: 
+                - name:asc
+                - name:desc
+                - created_at:asc
+                - created_at:desc
+                - updated_at:asc
+                - updated_at:desc
+                - status:asc
+                - status:desc
+          style: form
+          explode: false
+          example: ["updated_at:desc", "name:asc"]
+      responses:
+        '200':
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                  - pagination
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Project'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationInfo'
+                  metadata:
+                    type: object
+                    properties:
+                      filters_applied:
+                        type: array
+                        items:
+                          type: string
+                      search_query:
+                        type: string
+                      total_accessible:
+                        type: integer
+                        description: Total projects accessible to user
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/RateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/RateLimitReset'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+      security:
+        - OAuth2: [projects:read]
+        - BearerAuth: []
+
+    post:
+      tags:
+        - Projects
+      summary: Create Project
+      description: |
+        Create a new project with comprehensive validation and security checks.
+        Includes automatic path validation, dependency injection, and audit logging.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectRequest'
+      responses:
+        '201':
+          description: Project created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                  - metadata
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Project'
+                  metadata:
+                    type: object
+                    properties:
+                      created_at:
+                        type: string
+                        format: date-time
+                      permissions:
+                        type: array
+                        items:
+                          type: string
+                        description: User permissions for this project
+          headers:
+            Location:
+              description: URL of the created project
+              schema:
+                type: string
+                format: uri
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/RateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimitRemaining'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Project name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error:
+                  code: "PROJECT_NAME_EXISTS"
+                  message: "A project with this name already exists"
+                  details:
+                    field: "name"
+                    existing_project_id: "123e4567-e89b-12d3-a456-426614174000"
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+      security:
+        - OAuth2: [projects:write]
+        - BearerAuth: []
+
+  /projects/{projectId}:
+    get:
+      tags:
+        - Projects
+      summary: Get Project
+      description: |
+        Retrieve a specific project by ID with full details and security filtering.
+        Response includes user permissions and access metadata.
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: Project details
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                  - metadata
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Project'
+                  metadata:
+                    type: object
+                    properties:
+                      permissions:
+                        type: array
+                        items:
+                          type: string
+                        description: User permissions for this project
+                      last_accessed:
+                        type: string
+                        format: date-time
+                      access_count:
+                        type: integer
+                        description: Number of times user has accessed this project
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      security:
+        - OAuth2: [projects:read]
+        - BearerAuth: []
+
+    put:
+      tags:
+        - Projects
+      summary: Update Project
+      description: |
+        Update an existing project with comprehensive validation and version control.
+        Supports partial updates and includes conflict detection.
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProjectRequest'
+      responses:
+        '200':
+          description: Project updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                  - metadata
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Project'
+                  metadata:
+                    type: object
+                    properties:
+                      updated_at:
+                        type: string
+                        format: date-time
+                      version:
+                        type: integer
+                        description: New version number
+                      updated_by:
+                        type: string
+                        format: uuid
+                        description: ID of user who updated the project
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Version conflict - project was modified by another user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error:
+                  code: "VERSION_CONFLICT"
+                  message: "Project has been modified by another user"
+                  details:
+                    current_version: 5
+                    requested_version: 3
+                    last_modified_by: "456e7890-e89b-12d3-a456-426614174111"
+                    last_modified_at: "2025-09-18T14:30:00Z"
+      security:
+        - OAuth2: [projects:write]
+        - BearerAuth: []
+
+    delete:
+      tags:
+        - Projects
+      summary: Delete Project
+      description: |
+        Delete a project (soft delete by default) with dependency checking.
+        Includes recovery options and comprehensive audit logging.
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - name: force
+          in: query
+          description: Force deletion even if dependencies exist
+          schema:
+            type: boolean
+            default: false
+        - name: permanent
+          in: query
+          description: Perform permanent deletion (cannot be recovered)
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Project deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                  - metadata
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      deleted_at:
+                        type: string
+                        format: date-time
+                      recovery_deadline:
+                        type: string
+                        format: date-time
+                        description: Deadline for recovery (null if permanent)
+                  metadata:
+                    type: object
+                    properties:
+                      soft_delete:
+                        type: boolean
+                      can_recover:
+                        type: boolean
+                      dependencies_handled:
+                        type: integer
+                        description: Number of dependencies that were handled
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Project has dependencies
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - error
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: "HAS_DEPENDENCIES"
+                      message:
+                        type: string
+                        example: "Project has active dependencies"
+                      details:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            type:
+                              type: string
+                              enum: [session, context, integration]
+                            id:
+                              type: string
+                            name:
+                              type: string
+                            description:
+                              type: string
+      security:
+        - OAuth2: [projects:delete]
+        - BearerAuth: []
+
+  /projects/bulk:
+    post:
+      tags:
+        - Projects
+      summary: Bulk Create Projects
+      description: |
+        Create multiple projects in a single atomic operation with transaction management.
+        Supports partial success handling and comprehensive error reporting.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkCreateProjectsRequest'
+      responses:
+        '201':
+          description: Bulk creation completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkOperationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+      security:
+        - OAuth2: [projects:bulk_write]
+        - BearerAuth: []
+
+    put:
+      tags:
+        - Projects
+      summary: Bulk Update Projects
+      description: |
+        Update multiple projects in a single atomic operation with optimistic locking.
+        Includes version conflict detection and rollback capabilities.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkUpdateProjectsRequest'
+      responses:
+        '200':
+          description: Bulk update completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkOperationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+      security:
+        - OAuth2: [projects:bulk_write]
+        - BearerAuth: []
+
+    delete:
+      tags:
+        - Projects
+      summary: Bulk Delete Projects
+      description: |
+        Delete multiple projects in a single atomic operation with dependency checking.
+        Supports both soft and permanent deletion with comprehensive error handling.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkDeleteProjectsRequest'
+      responses:
+        '200':
+          description: Bulk deletion completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkDeleteResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+      security:
+        - OAuth2: [projects:bulk_delete]
+        - BearerAuth: []
+
+  /projects/search:
+    get:
+      tags:
+        - Projects
+      summary: Advanced Project Search
+      description: |
+        Perform advanced full-text search across projects with security filtering,
+        faceted search, and intelligent ranking based on user context.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Search query with support for advanced syntax
+          schema:
+            type: string
+            maxLength: 500
+          example: "react AND (typescript OR javascript) -deprecated"
+        - name: fields
+          in: query
+          description: Fields to search in
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [name, description, tags, readme, documentation]
+            default: [name, description, tags]
+        - name: boost
+          in: query
+          description: Field boost factors for relevance scoring
+          schema:
+            type: object
+            additionalProperties:
+              type: number
+              minimum: 0
+              maximum: 10
+          example:
+            name: 2.0
+            description: 1.0
+            tags: 1.5
+        - name: fuzziness
+          in: query
+          description: Fuzzy matching tolerance
+          schema:
+            type: string
+            enum: [AUTO, "0", "1", "2"]
+            default: AUTO
+        - name: highlight
+          in: query
+          description: Enable search result highlighting
+          schema:
+            type: boolean
+            default: true
+        - $ref: '#/components/parameters/PageParameter'
+        - $ref: '#/components/parameters/LimitParameter'
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                  - search
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/Project'
+                        - type: object
+                          properties:
+                            _score:
+                              type: number
+                              description: Relevance score
+                            _highlights:
+                              type: object
+                              description: Highlighted search matches
+                              additionalProperties:
+                                type: array
+                                items:
+                                  type: string
+                  search:
+                    type: object
+                    properties:
+                      query:
+                        type: string
+                      total_hits:
+                        type: integer
+                      max_score:
+                        type: number
+                      search_time_ms:
+                        type: integer
+                      suggestions:
+                        type: array
+                        items:
+                          type: string
+                        description: Query suggestions for better results
+                  pagination:
+                    $ref: '#/components/schemas/PaginationInfo'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+      security:
+        - OAuth2: [projects:search]
+        - BearerAuth: []
+
+  /projects/export:
+    get:
+      tags:
+        - Projects
+      summary: Export Projects
+      description: |
+        Export projects data in various formats with encryption and audit logging.
+        Supports filtering and includes comprehensive metadata.
+      parameters:
+        - name: format
+          in: query
+          required: true
+          description: Export format
+          schema:
+            type: string
+            enum: [json, csv, xlsx]
+        - name: projects
+          in: query
+          description: Specific project IDs to export (if not provided, exports all accessible)
+          schema:
+            type: array
+            items:
+              type: string
+              format: uuid
+        - name: include_metadata
+          in: query
+          description: Include project metadata in export
+          schema:
+            type: boolean
+            default: true
+        - name: include_sensitive
+          in: query
+          description: Include sensitive data (requires elevated permissions)
+          schema:
+            type: boolean
+            default: false
+        - name: encryption
+          in: query
+          description: Enable export encryption
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: Exported data
+          content:
+            application/json:
+              schema:
+                type: string
+                format: binary
+                description: Encrypted export data
+            text/csv:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              description: Filename for download
+              schema:
+                type: string
+                example: 'attachment; filename="projects_export_20250918.json"'
+            X-Export-Record-Count:
+              description: Number of records in export
+              schema:
+                type: integer
+            X-Export-Generated-At:
+              description: Export generation timestamp
+              schema:
+                type: string
+                format: date-time
+            X-Export-Encrypted:
+              description: Whether export is encrypted
+              schema:
+                type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+      security:
+        - OAuth2: [projects:export]
+        - BearerAuth: []
+
+  /projects/import:
+    post:
+      tags:
+        - Projects
+      summary: Import Projects
+      description: |
+        Import projects from uploaded file with comprehensive validation and error handling.
+        Supports multiple formats and includes duplicate detection.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Import file (JSON, CSV, or XLSX)
+                format:
+                  type: string
+                  enum: [json, csv, xlsx]
+                  description: File format (auto-detected if not provided)
+                mode:
+                  type: string
+                  enum: [create, update, upsert]
+                  default: create
+                  description: Import mode for handling existing projects
+                validate_only:
+                  type: boolean
+                  default: false
+                  description: Validate import without creating projects
+                skip_duplicates:
+                  type: boolean
+                  default: true
+                  description: Skip projects that already exist
+                batch_size:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                  default: 50
+                  description: Number of projects to process per batch
+      responses:
+        '201':
+          description: Import completed
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                  - metadata
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      imported:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Project'
+                      failed:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/FailedOperation'
+                      summary:
+                        type: object
+                        properties:
+                          total_records:
+                            type: integer
+                          imported:
+                            type: integer
+                          failed:
+                            type: integer
+                          skipped:
+                            type: integer
+                  metadata:
+                    type: object
+                    properties:
+                      import_id:
+                        type: string
+                        format: uuid
+                      imported_at:
+                        type: string
+                        format: date-time
+                      import_format:
+                        type: string
+                      processing_time_ms:
+                        type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '413':
+          description: File too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+      security:
+        - OAuth2: [projects:import]
+        - BearerAuth: []
+
+  # Voice API with Enhanced Security
+  /voice/initialize:
+    post:
+      tags:
+        - Voice
+      summary: Initialize Voice Engine
+      description: |
+        Initialize voice processing engine with comprehensive security and consent validation.
+        Requires explicit user consent and device verification.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - consent_id
+                - device_info
+              properties:
+                consent_id:
+                  type: string
+                  pattern: '^consent_[a-zA-Z0-9]+$'
+                  description: Explicit consent identifier for voice processing
+                device_info:
+                  type: object
+                  required:
+                    - device_id
+                    - user_agent
+                  properties:
+                    device_id:
+                      type: string
+                      description: Unique device identifier
+                    user_agent:
+                      type: string
+                      description: User agent string
+                    capabilities:
+                      type: object
+                      properties:
+                        microphone:
+                          type: boolean
+                        noise_cancellation:
+                          type: boolean
+                        sample_rate:
+                          type: integer
+                config:
+                  type: object
+                  properties:
+                    language:
+                      type: string
+                      enum: [en-US, en-GB, es-ES, fr-FR, de-DE]
+                      default: en-US
+                    sample_rate:
+                      type: integer
+                      enum: [16000, 44100, 48000]
+                      default: 48000
+                    channels:
+                      type: integer
+                      enum: [1, 2]
+                      default: 1
+                    mode:
+                      type: string
+                      enum: [local, cloud, hybrid]
+                      default: hybrid
+                    vad:
+                      type: object
+                      properties:
+                        enabled:
+                          type: boolean
+                          default: true
+                        sensitivity:
+                          type: number
+                          minimum: 0
+                          maximum: 1
+                          default: 0.7
+                    speaker_verification:
+                      type: object
+                      properties:
+                        enabled:
+                          type: boolean
+                          default: false
+                        enrollment_required:
+                          type: boolean
+                          default: false
+      responses:
+        '200':
+          description: Voice engine initialized
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      session_id:
+                        type: string
+                        format: uuid
+                        description: Voice session identifier
+                      status:
+                        type: string
+                        enum: [initialized, ready, error]
+                        example: initialized
+                      capabilities:
+                        type: object
+                        properties:
+                          streaming:
+                            type: boolean
+                          languages:
+                            type: array
+                            items:
+                              type: string
+                          max_duration:
+                            type: integer
+                            description: Maximum recording duration in milliseconds
+                          speaker_verification:
+                            type: boolean
+                      websocket_url:
+                        type: string
+                        format: uri
+                        description: WebSocket URL for real-time voice streaming
+                      encryption:
+                        type: object
+                        properties:
+                          algorithm:
+                            type: string
+                            example: AES-256-GCM
+                          key_id:
+                            type: string
+                            description: Encryption key identifier
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+      security:
+        - OAuth2: [voice:init]
+        - BearerAuth: []
+
+  /voice/sessions/{sessionId}/start:
+    post:
+      tags:
+        - Voice
+      summary: Start Voice Capture
+      description: |
+        Start voice capture session with speaker verification and security monitoring.
+        Implements real-time threat detection and session management.
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Voice session identifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode:
+                  type: string
+                  enum: [continuous, push-to-talk, command]
+                  default: continuous
+                timeout:
+                  type: integer
+                  minimum: 1000
+                  maximum: 300000
+                  default: 30000
+                  description: Capture timeout in milliseconds
+                speaker_verification:
+                  type: object
+                  properties:
+                    required:
+                      type: boolean
+                      default: false
+                    voiceprint_id:
+                      type: string
+                      description: Pre-enrolled voiceprint identifier
+                security:
+                  type: object
+                  properties:
+                    threat_detection:
+                      type: boolean
+                      default: true
+                    content_filtering:
+                      type: boolean
+                      default: true
+                    audit_recording:
+                      type: boolean
+                      default: false
+      responses:
+        '200':
+          description: Voice capture started
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      capture_id:
+                        type: string
+                        format: uuid
+                      status:
+                        type: string
+                        enum: [capturing, ready, error]
+                        example: capturing
+                      stream_url:
+                        type: string
+                        format: uri
+                        description: WebSocket URL for audio streaming
+                      speaker_verification:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                            enum: [not_required, pending, verified, failed]
+                          confidence:
+                            type: number
+                            minimum: 0
+                            maximum: 1
+                      security:
+                        type: object
+                        properties:
+                          encryption_active:
+                            type: boolean
+                          threat_monitoring:
+                            type: boolean
+                          session_token:
+                            type: string
+                            description: Temporary session token for WebSocket auth
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Voice session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+      security:
+        - OAuth2: [voice:control]
+        - BearerAuth: []
+
+components:
+  securitySchemes:
+    OAuth2:
+      type: oauth2
+      description: |
+        OAuth 2.0 authorization with OpenID Connect support.
+        Supports authorization code flow with PKCE and refresh tokens.
+      flows:
+        authorizationCode:
+          authorizationUrl: https://api.alphanumericmango.com/v2/auth/authorize
+          tokenUrl: https://api.alphanumericmango.com/v2/auth/token
+          refreshUrl: https://api.alphanumericmango.com/v2/auth/token
+          scopes:
+            openid: "OpenID Connect scope"
+            profile: "Access to user profile information"
+            email: "Access to user email address"
+            projects:read: "Read access to projects"
+            projects:write: "Write access to projects"
+            projects:delete: "Delete access to projects"
+            projects:bulk_write: "Bulk write operations on projects"
+            projects:bulk_delete: "Bulk delete operations on projects"
+            projects:search: "Advanced search capabilities"
+            projects:export: "Export project data"
+            projects:import: "Import project data"
+            voice:init: "Initialize voice processing"
+            voice:control: "Control voice capture and processing"
+            voice:admin: "Administrative voice operations"
+            system:read: "Read system information"
+            system:admin: "Administrative system operations"
+        clientCredentials:
+          tokenUrl: https://api.alphanumericmango.com/v2/auth/token
+          scopes:
+            system:read: "Read system information"
+            projects:read: "Read access to projects"
+
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT Bearer token authentication. Include the token in the Authorization header:
+        `Authorization: Bearer <jwt_token>`
+
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: |
+        API key for service-to-service authentication. Format: `amng_<key_id>_<secret>`
+        Contact API support to obtain API keys for your service.
+
+  parameters:
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      description: Unique project identifier
+      schema:
+        type: string
+        format: uuid
+      example: "123e4567-e89b-12d3-a456-426614174000"
+
+    PageParameter:
+      name: page
+      in: query
+      description: Page number (1-based)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      example: 1
+
+    LimitParameter:
+      name: limit
+      in: query
+      description: Number of items per page
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      example: 20
+
+    CursorParameter:
+      name: cursor
+      in: query
+      description: Cursor for pagination (opaque string)
+      schema:
+        type: string
+      example: "eyJpZCI6IjEyMyIsImNyZWF0ZWRfYXQiOiIyMDI1LTA5LTE4VDE0OjMwOjAwWiJ9"
+
+  headers:
+    RateLimitLimit:
+      description: Maximum number of requests allowed in the current window
+      schema:
+        type: integer
+      example: 1000
+
+    RateLimitRemaining:
+      description: Number of requests remaining in the current window
+      schema:
+        type: integer
+      example: 999
+
+    RateLimitReset:
+      description: Unix timestamp when the rate limit window resets
+      schema:
+        type: integer
+      example: 1695028800
+
+    RateLimitRetryAfter:
+      description: Number of seconds to wait before retrying
+      schema:
+        type: integer
+      example: 60
+
+  responses:
+    BadRequest:
+      description: Bad request - validation or format error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            validation_error:
+              summary: Validation error
+              value:
+                success: false
+                error:
+                  code: "VALIDATION_FAILED"
+                  message: "Request validation failed"
+                  details:
+                    field: "name"
+                    reason: "Field is required"
+                    value: null
+            invalid_format:
+              summary: Invalid format
+              value:
+                success: false
+                error:
+                  code: "INVALID_FORMAT"
+                  message: "Invalid request format"
+                  details:
+                    expected: "application/json"
+                    received: "text/plain"
+
+    Unauthorized:
+      description: Unauthorized - authentication required or invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            missing_token:
+              summary: Missing authentication token
+              value:
+                success: false
+                error:
+                  code: "AUTHENTICATION_REQUIRED"
+                  message: "Authentication token is required"
+            invalid_token:
+              summary: Invalid token
+              value:
+                success: false
+                error:
+                  code: "INVALID_TOKEN"
+                  message: "Authentication token is invalid or expired"
+            token_expired:
+              summary: Token expired
+              value:
+                success: false
+                error:
+                  code: "TOKEN_EXPIRED"
+                  message: "Authentication token has expired"
+                  details:
+                    expired_at: "2025-09-18T14:30:00Z"
+                    refresh_token_url: "/auth/token"
+
+    Forbidden:
+      description: Forbidden - insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            insufficient_permissions:
+              summary: Insufficient permissions
+              value:
+                success: false
+                error:
+                  code: "INSUFFICIENT_PERMISSIONS"
+                  message: "Insufficient permissions for this operation"
+                  details:
+                    required_permission: "projects:write"
+                    user_permissions: ["projects:read"]
+            resource_access_denied:
+              summary: Resource access denied
+              value:
+                success: false
+                error:
+                  code: "RESOURCE_ACCESS_DENIED"
+                  message: "Access to this resource is not permitted"
+                  details:
+                    resource_type: "project"
+                    resource_id: "123e4567-e89b-12d3-a456-426614174000"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            resource_not_found:
+              summary: Resource not found
+              value:
+                success: false
+                error:
+                  code: "RESOURCE_NOT_FOUND"
+                  message: "The requested resource was not found"
+                  details:
+                    resource_type: "project"
+                    resource_id: "123e4567-e89b-12d3-a456-426614174000"
+
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        X-RateLimit-Limit:
+          $ref: '#/components/headers/RateLimitLimit'
+        X-RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimitRemaining'
+        X-RateLimit-Reset:
+          $ref: '#/components/headers/RateLimitReset'
+        Retry-After:
+          $ref: '#/components/headers/RateLimitRetryAfter'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            rate_limit_exceeded:
+              summary: Rate limit exceeded
+              value:
+                success: false
+                error:
+                  code: "RATE_LIMIT_EXCEEDED"
+                  message: "Rate limit exceeded"
+                  details:
+                    limit: 1000
+                    window: "1 hour"
+                    retry_after: 3600
+                    limit_type: "user"
+
+  schemas:
+    # Authentication Schemas
+    AuthorizationCodeTokenRequest:
+      type: object
+      required:
+        - grant_type
+        - code
+        - client_id
+        - redirect_uri
+      properties:
+        grant_type:
+          type: string
+          enum: [authorization_code]
+        code:
+          type: string
+          description: Authorization code from authorization endpoint
+        client_id:
+          type: string
+          description: OAuth 2.0 client identifier
+        client_secret:
+          type: string
+          description: OAuth 2.0 client secret (for confidential clients)
+        redirect_uri:
+          type: string
+          format: uri
+          description: Redirect URI used in authorization request
+        code_verifier:
+          type: string
+          description: PKCE code verifier
+        scope:
+          type: string
+          description: Requested scope (optional, defaults to original scope)
+
+    RefreshTokenRequest:
+      type: object
+      required:
+        - grant_type
+        - refresh_token
+      properties:
+        grant_type:
+          type: string
+          enum: [refresh_token]
+        refresh_token:
+          type: string
+          description: Refresh token from previous token response
+        client_id:
+          type: string
+          description: OAuth 2.0 client identifier
+        client_secret:
+          type: string
+          description: OAuth 2.0 client secret (for confidential clients)
+        scope:
+          type: string
+          description: Requested scope (optional, must not exceed original scope)
+
+    ClientCredentialsRequest:
+      type: object
+      required:
+        - grant_type
+        - client_id
+        - client_secret
+      properties:
+        grant_type:
+          type: string
+          enum: [client_credentials]
+        client_id:
+          type: string
+          description: OAuth 2.0 client identifier
+        client_secret:
+          type: string
+          description: OAuth 2.0 client secret
+        scope:
+          type: string
+          description: Requested scope
+
+    TokenResponse:
+      type: object
+      required:
+        - access_token
+        - token_type
+        - expires_in
+      properties:
+        access_token:
+          type: string
+          description: OAuth 2.0 access token (JWT)
+        token_type:
+          type: string
+          enum: [Bearer]
+          description: Token type (always Bearer)
+        expires_in:
+          type: integer
+          description: Access token lifetime in seconds
+          example: 3600
+        refresh_token:
+          type: string
+          description: Refresh token for token renewal
+        scope:
+          type: string
+          description: Actual granted scope
+          example: "projects:read projects:write voice:control"
+        id_token:
+          type: string
+          description: OpenID Connect ID token (JWT)
+
+    UserInfo:
+      type: object
+      required:
+        - sub
+      properties:
+        sub:
+          type: string
+          format: uuid
+          description: Subject identifier (user ID)
+        email:
+          type: string
+          format: email
+          description: User email address
+        email_verified:
+          type: boolean
+          description: Whether email is verified
+        name:
+          type: string
+          description: Full name
+        given_name:
+          type: string
+          description: First name
+        family_name:
+          type: string
+          description: Last name
+        picture:
+          type: string
+          format: uri
+          description: Profile picture URL
+        preferred_username:
+          type: string
+          description: Preferred username
+        locale:
+          type: string
+          description: User locale
+        updated_at:
+          type: string
+          format: date-time
+          description: Profile last updated timestamp
+        # Custom claims
+        mfa_verified:
+          type: boolean
+          description: Whether MFA is verified for current session
+        role:
+          type: string
+          description: User role
+          enum: [admin, user, viewer]
+        permissions:
+          type: array
+          items:
+            type: string
+          description: User permissions
+
+    # Project Schemas
+    Project:
+      type: object
+      required:
+        - id
+        - name
+        - type
+        - status
+        - owner_id
+        - created_at
+        - updated_at
+        - version
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique project identifier
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Project name
+          example: "My React App"
+        description:
+          type: string
+          maxLength: 2000
+          description: Project description
+          example: "A modern React application with TypeScript"
+        type:
+          $ref: '#/components/schemas/ProjectType'
+        status:
+          $ref: '#/components/schemas/ProjectStatus'
+        owner_id:
+          type: string
+          format: uuid
+          description: Project owner user ID
+        organization_id:
+          type: string
+          format: uuid
+          description: Organization ID (if applicable)
+        path:
+          type: string
+          description: Project file system path
+          example: "/Users/user/projects/my-react-app"
+        git_repository:
+          type: object
+          properties:
+            url:
+              type: string
+              format: uri
+              description: Git repository URL
+            branch:
+              type: string
+              description: Current branch
+              default: main
+            commit:
+              type: string
+              description: Current commit hash
+            remote:
+              type: string
+              description: Remote name
+              default: origin
+        environment:
+          type: object
+          description: Project environment variables
+          additionalProperties:
+            type: string
+        metadata:
+          type: object
+          description: Additional project metadata
+          properties:
+            language:
+              type: string
+              description: Primary programming language
+            framework:
+              type: string
+              description: Framework or library used
+            version:
+              type: string
+              description: Project version
+            dependencies:
+              type: object
+              description: Project dependencies
+        tags:
+          type: array
+          items:
+            type: string
+          description: Project tags
+          example: ["react", "typescript", "frontend"]
+        settings:
+          type: object
+          description: Project-specific settings
+          properties:
+            auto_save:
+              type: boolean
+              default: true
+            build_on_save:
+              type: boolean
+              default: false
+            linting_enabled:
+              type: boolean
+              default: true
+        visibility:
+          type: string
+          enum: [private, shared, public]
+          default: private
+          description: Project visibility level
+        shared_with:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: User IDs with shared access
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+        last_accessed_at:
+          type: string
+          format: date-time
+          description: Last access timestamp
+        version:
+          type: integer
+          minimum: 1
+          description: Version number for optimistic locking
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Soft deletion timestamp
+
+    ProjectType:
+      type: string
+      enum:
+        - web
+        - mobile
+        - desktop
+        - backend
+        - fullstack
+        - library
+        - cli
+        - data
+        - other
+      description: Project type category
+
+    ProjectStatus:
+      type: string
+      enum:
+        - active
+        - inactive
+        - archived
+        - deleted
+        - template
+      description: Project status
+
+    CreateProjectRequest:
+      type: object
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Project name (must be unique for user)
+          pattern: '^[a-zA-Z0-9][a-zA-Z0-9\s\-_.]{0,253}[a-zA-Z0-9]$'
+          example: "My New Project"
+        description:
+          type: string
+          maxLength: 2000
+          description: Project description
+        type:
+          $ref: '#/components/schemas/ProjectType'
+        path:
+          type: string
+          description: Project file system path (auto-generated if not provided)
+          example: "/Users/user/projects/my-new-project"
+        template_id:
+          type: string
+          format: uuid
+          description: Template to create project from
+        git_repository:
+          type: object
+          properties:
+            url:
+              type: string
+              format: uri
+              description: Git repository URL to clone
+            branch:
+              type: string
+              description: Branch to checkout
+              default: main
+            auth:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum: [ssh, https, token]
+                credentials:
+                  type: string
+                  description: Authentication credentials
+        environment:
+          type: object
+          description: Initial environment variables
+          additionalProperties:
+            type: string
+        metadata:
+          type: object
+          description: Project metadata
+        tags:
+          type: array
+          items:
+            type: string
+          description: Project tags
+          maxItems: 20
+        settings:
+          type: object
+          description: Project settings
+        visibility:
+          type: string
+          enum: [private, shared, public]
+          default: private
+          description: Project visibility
+        shared_with:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: User IDs to share with (requires shared visibility)
+          maxItems: 50
+
+    UpdateProjectRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          pattern: '^[a-zA-Z0-9][a-zA-Z0-9\s\-_.]{0,253}[a-zA-Z0-9]$'
+        description:
+          type: string
+          maxLength: 2000
+        type:
+          $ref: '#/components/schemas/ProjectType'
+        status:
+          $ref: '#/components/schemas/ProjectStatus'
+        path:
+          type: string
+        git_repository:
+          type: object
+          properties:
+            url:
+              type: string
+              format: uri
+            branch:
+              type: string
+            commit:
+              type: string
+            remote:
+              type: string
+        environment:
+          type: object
+          additionalProperties:
+            type: string
+        metadata:
+          type: object
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        settings:
+          type: object
+        visibility:
+          type: string
+          enum: [private, shared, public]
+        shared_with:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 50
+        version:
+          type: integer
+          minimum: 1
+          description: Current version for optimistic locking
+
+    # Bulk Operation Schemas
+    BulkCreateProjectsRequest:
+      type: object
+      required:
+        - projects
+      properties:
+        projects:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreateProjectRequest'
+          minItems: 1
+          maxItems: 100
+          description: Projects to create
+        options:
+          type: object
+          properties:
+            fail_on_any_error:
+              type: boolean
+              default: false
+              description: Fail entire operation if any project fails
+            stop_on_first_error:
+              type: boolean
+              default: false
+              description: Stop processing on first error
+            batch_size:
+              type: integer
+              minimum: 1
+              maximum: 50
+              default: 10
+              description: Number of projects to process per batch
+
+    BulkUpdateProjectsRequest:
+      type: object
+      required:
+        - updates
+      properties:
+        updates:
+          type: array
+          items:
+            allOf:
+              - type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                    description: Project ID to update
+              - $ref: '#/components/schemas/UpdateProjectRequest'
+          minItems: 1
+          maxItems: 100
+        options:
+          type: object
+          properties:
+            fail_on_any_error:
+              type: boolean
+              default: false
+            stop_on_first_error:
+              type: boolean
+              default: false
+            batch_size:
+              type: integer
+              minimum: 1
+              maximum: 50
+              default: 10
+
+    BulkDeleteProjectsRequest:
+      type: object
+      required:
+        - project_ids
+      properties:
+        project_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+          maxItems: 100
+          description: Project IDs to delete
+        options:
+          type: object
+          properties:
+            soft:
+              type: boolean
+              default: true
+              description: Perform soft delete (recoverable)
+            force:
+              type: boolean
+              default: false
+              description: Force delete even with dependencies
+            fail_on_any_error:
+              type: boolean
+              default: false
+            stop_on_first_error:
+              type: boolean
+              default: false
+
+    BulkOperationResult:
+      type: object
+      required:
+        - operation_id
+        - summary
+      properties:
+        operation_id:
+          type: string
+          format: uuid
+          description: Unique operation identifier
+        created:
+          type: array
+          items:
+            $ref: '#/components/schemas/Project'
+          description: Successfully created projects
+        updated:
+          type: array
+          items:
+            $ref: '#/components/schemas/Project'
+          description: Successfully updated projects
+        failed:
+          type: array
+          items:
+            $ref: '#/components/schemas/FailedOperation'
+          description: Failed operations
+        summary:
+          type: object
+          required:
+            - total_requested
+            - successful
+            - failed
+          properties:
+            total_requested:
+              type: integer
+              description: Total operations requested
+            successful:
+              type: integer
+              description: Number of successful operations
+            failed:
+              type: integer
+              description: Number of failed operations
+            success_rate:
+              type: number
+              minimum: 0
+              maximum: 1
+              description: Success rate (successful / total)
+            processing_time_ms:
+              type: integer
+              description: Total processing time in milliseconds
+
+    BulkDeleteResult:
+      allOf:
+        - $ref: '#/components/schemas/BulkOperationResult'
+        - type: object
+          properties:
+            deleted:
+              type: array
+              items:
+                type: string
+                format: uuid
+              description: Successfully deleted project IDs
+            unauthorized:
+              type: array
+              items:
+                type: string
+                format: uuid
+              description: Project IDs user was not authorized to delete
+
+    FailedOperation:
+      type: object
+      required:
+        - index
+        - error
+      properties:
+        index:
+          type: integer
+          description: Index in original request array
+        request:
+          type: object
+          description: Original request data that failed
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: Error code
+            message:
+              type: string
+              description: Human-readable error message
+            details:
+              type: object
+              description: Additional error details
+
+    # Pagination Schema
+    PaginationInfo:
+      type: object
+      required:
+        - page
+        - limit
+        - total
+        - pages
+      properties:
+        page:
+          type: integer
+          minimum: 1
+          description: Current page number
+        limit:
+          type: integer
+          minimum: 1
+          description: Items per page
+        total:
+          type: integer
+          minimum: 0
+          description: Total number of items
+        pages:
+          type: integer
+          minimum: 0
+          description: Total number of pages
+        has_next:
+          type: boolean
+          description: Whether there is a next page
+        has_prev:
+          type: boolean
+          description: Whether there is a previous page
+        next_cursor:
+          type: string
+          description: Cursor for next page (cursor-based pagination)
+        prev_cursor:
+          type: string
+          description: Cursor for previous page (cursor-based pagination)
+
+    # Error Schema
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code
+              example: "VALIDATION_FAILED"
+            message:
+              type: string
+              description: Human-readable error message
+              example: "Request validation failed"
+            details:
+              type: object
+              description: Additional error details
+            timestamp:
+              type: string
+              format: date-time
+              description: Error timestamp
+            request_id:
+              type: string
+              format: uuid
+              description: Request identifier for support
+            type:
+              type: string
+              format: uri
+              description: Error type URI (RFC 7807)
+              example: "https://api.alphanumericmango.com/errors/validation-failed"
+
+tags:
+  - name: Authentication
+    description: |
+      OAuth 2.0 + OpenID Connect authentication and authorization endpoints.
+      Supports authorization code flow, refresh tokens, and token revocation.
+  - name: Projects
+    description: |
+      Project management operations with comprehensive CRUD, bulk operations,
+      advanced search, and data import/export capabilities.
+  - name: Voice
+    description: |
+      Voice processing and control operations with advanced security,
+      speaker verification, and real-time threat detection.
+  - name: Sessions
+    description: |
+      Terminal session management with tmux integration and security controls.
+  - name: System
+    description: |
+      System information and administrative operations with proper authorization.
+
+externalDocs:
+  description: API Documentation and Developer Guide
+  url: https://docs.alphanumericmango.com/api/v2

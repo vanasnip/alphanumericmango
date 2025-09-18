@@ -10,6 +10,8 @@
 {"type":"entity","name":"ProcessIsolation","entityType":"pattern","observations":["Separate UI rendering from business logic mandatory","Extension host in utility process for crash resilience","Sandboxed renderer with context isolation","Message ports for direct process communication"]}
 {"type":"entity","name":"MemoryOptimization","entityType":"optimization","observations":["60% reduction achievable through stream processing","Virtual scrolling for large datasets essential","Lazy loading reduces startup memory footprint","Proper cleanup patterns prevent leaks"]}
 {"type":"entity","name":"ElectronAntiPatterns","entityType":"anti_pattern","observations":["Synchronous IPC causes UI hangs","require() overuse biggest startup bottleneck","Monolithic process design reduces crash isolation","Uncontrolled extension loading impacts performance"]}
+{"type":"entity","name":"PostgreSQL_Database_Setup","entityType":"feature","observations":["Implemented for GitHub issue #22","PostgreSQL 15+ with Docker configuration","Database schema for notification system created","Connection pooling with pg-pool configured","Knex.js migration system implemented","Backup and restore scripts created","Health check and monitoring utilities added","Comprehensive documentation written","Test suite for database operations created","Located in voice-terminal-hybrid directory"]}
+{"type":"entity","name":"NotificationSystem_Schema","entityType":"architecture","observations":["Uses dedicated 'notifications' schema","8 main tables: projects, users, templates, notifications, batches, batch_notifications, events, user_preferences","Custom enum types for status, priority, and channels","Automatic timestamp triggers for updated_at columns","Comprehensive indexes for performance","Foreign key constraints for data integrity","JSONB columns for flexible metadata storage"]}
 {"type":"relation","from":"VoiceTerminalHybrid","to":"AlphanumericMango","relationType":"part_of"}
 {"type":"relation","from":"ElectronShell","to":"AlphanumericMango","relationType":"part_of"}
 {"type":"relation","from":"AlphanumericMango","to":"MCPArchitecture","relationType":"uses"}
@@ -23,3 +25,6 @@
 {"type":"relation","from":"VSCodeArchitecture","to":"ProcessIsolation","relationType":"implements"}
 {"type":"relation","from":"VSCodeArchitecture","to":"V8Snapshots","relationType":"uses"}
 {"type":"relation","from":"ProcessIsolation","to":"ElectronAntiPatterns","relationType":"prevents"}
+{"type":"relation","from":"PostgreSQL_Database_Setup","to":"AlphanumericMango","relationType":"part_of"}
+{"type":"relation","from":"NotificationSystem_Schema","to":"PostgreSQL_Database_Setup","relationType":"implements"}
+{"type":"relation","from":"PostgreSQL_Database_Setup","to":"VoiceTerminal","relationType":"supports"}

@@ -1,0 +1,317 @@
+# Electron Shell CI/CD - Optimized for local execution with act
+#
+# Usage with act (local execution):
+#   Basic run (linux build only):
+#     act -j build-and-test
+#   
+#   Include packaging:
+#     act -j build-and-test,package-electron -s RUN_PACKAGING=true
+#
+# Local optimization features:
+#   - Single platform (ubuntu-latest) for faster execution
+#   - Single Node.js version (20) for consistency
+#   - Local npm caching in node_modules
+#   - Skips expensive cross-platform builds
+#   - Uses npm install instead of npm ci for better offline support
+
+name: Electron Shell CI/CD
+
+on:
+  workflow_call:
+    secrets: inherit
+  release:
+    types: [published, prereleased]
+  workflow_dispatch:
+    inputs:
+      run_packaging:
+        description: 'Run expensive packaging operations'
+        required: false
+        default: false
+        type: boolean
+      run_security_scan:
+        description: 'Run security scans'
+        required: false
+        default: false
+        type: boolean
+
+defaults:
+  run:
+    working-directory: electron-shell
+
+env:
+  # Detect act execution
+  ACT_EXECUTION: ${{ github.actor || 'false' }}
+  # Local cache paths for act
+  NPM_CACHE_DIR: ${{ github.actor && './.npm-cache' || '' }}
+  NODE_MODULES_CACHE: ${{ github.actor && './electron-shell/node_modules' || '' }}
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    strategy:
+      matrix:
+        # Simplified matrix for act - single platform/version locally
+        os: ${{ github.actor == 'nektos/act' && fromJSON('["ubuntu-latest"]') || fromJSON('["ubuntu-latest", "windows-latest", "macos-latest"]') }}
+        node-version: ${{ github.actor == 'nektos/act' && fromJSON('["20"]') || fromJSON('["18", "20"]') }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: ${{ github.actor != 'nektos/act' && 'npm' || '' }}
+          cache-dependency-path: ${{ github.actor != 'nektos/act' && 'electron-shell/package-lock.json' || '' }}
+      
+      - name: Cache node_modules for local execution
+        if: github.actor == 'nektos/act'
+        uses: actions/cache@v3
+        with:
+          path: electron-shell/node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('electron-shell/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-modules-
+      
+      - name: Install dependencies
+        run: |
+          if [ "$ACT_EXECUTION" = "true" ]; then
+            echo "Running in act - optimized install"
+            npm install --prefer-offline --no-audit --no-fund
+          else
+            npm ci
+          fi
+      
+      - name: Build TypeScript
+        run: npm run build
+      
+      - name: Run tests
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          # Add test command when tests are implemented
+          echo "Tests will be run here"
+      
+      - name: Upload build artifacts
+        if: matrix.node-version == 20 && github.actor != 'nektos/act'
+        uses: actions/upload-artifact@v3
+        with:
+          name: electron-build-${{ matrix.os }}
+          path: electron-shell/dist/
+          retention-days: 7
+  
+  package-electron:
+    name: Package Electron App
+    needs: [build-and-test]
+    # Run only on releases or when manually requested
+    if: (github.event_name == 'release' || github.event.inputs.run_packaging == 'true') && github.actor != 'nektos/act'
+    strategy:
+      matrix:
+        # Simplified matrix for act - linux only
+        os: ${{ github.actor == 'nektos/act' && fromJSON('["ubuntu-latest"]') || fromJSON('["ubuntu-latest", "windows-latest", "macos-latest"]') }}
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            artifact-ext: AppImage
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: ${{ github.actor != 'nektos/act' && 'npm' || '' }}
+          cache-dependency-path: ${{ github.actor != 'nektos/act' && 'electron-shell/package-lock.json' || '' }}
+      
+      - name: Cache node_modules for local execution
+        if: github.actor == 'nektos/act'
+        uses: actions/cache@v3
+        with:
+          path: electron-shell/node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('electron-shell/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-modules-
+      
+      - name: Cache Electron binaries for local execution
+        if: github.actor == 'nektos/act'
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/electron
+          key: ${{ runner.os }}-electron-${{ hashFiles('electron-shell/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-
+      
+      - name: Install dependencies
+        run: |
+          if [ "$ACT_EXECUTION" = "true" ]; then
+            echo "Running in act - optimized install"
+            npm install --prefer-offline --no-audit --no-fund
+          else
+            npm ci
+          fi
+      
+      - name: Build TypeScript
+        run: npm run build
+      
+      - name: Package Electron app
+        run: |
+          if [ "$ACT_EXECUTION" = "true" ]; then
+            echo "Running electron packaging in act mode"
+            npm run package -- --linux
+          else
+            npm run package
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Upload packaged app
+        uses: actions/upload-artifact@v3
+        if: github.actor != 'nektos/act'
+        with:
+          name: electron-app-${{ matrix.platform }}
+          path: |
+            electron-shell/dist/*.dmg
+            electron-shell/dist/*.AppImage
+            electron-shell/dist/*.exe
+            electron-shell/dist/*.snap
+            electron-shell/dist/*.deb
+          retention-days: 30
+  
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    # Run only on releases or when manually requested
+    if: (github.event_name == 'release' || github.event.inputs.run_security_scan == 'true') && github.actor != 'nektos/act'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        if: github.actor == 'nektos/act'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Cache node_modules for local execution
+        if: github.actor == 'nektos/act'
+        uses: actions/cache@v3
+        with:
+          path: electron-shell/node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('electron-shell/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-modules-
+      
+      - name: Install dependencies for audit
+        if: github.actor == 'nektos/act'
+        working-directory: electron-shell
+        run: npm install --prefer-offline --no-audit --no-fund
+      
+      - name: Run npm audit
+        working-directory: electron-shell
+        run: |
+          if [ "$ACT_EXECUTION" = "true" ]; then
+            echo "Running basic npm audit in act mode"
+            npm audit --audit-level=high || true
+          else
+            npm audit --audit-level=moderate
+          fi
+        continue-on-error: true
+      
+      - name: Run OWASP dependency check
+        if: github.actor != 'nektos/act'
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'electron-shell'
+          path: './electron-shell'
+          format: 'HTML'
+          args: >
+            --enableRetired
+            --enableExperimental
+      
+      - name: Upload dependency check results
+        uses: actions/upload-artifact@v3
+        if: always() && github.actor != 'nektos/act'
+        with:
+          name: dependency-check-report
+          path: reports/
+          retention-days: 7
+  
+  code-signing:
+    name: Code Sign Electron App
+    needs: [package-electron]
+    # Run only on releases (requires certificates and external services)
+    if: github.event_name == 'release' && github.actor != 'nektos/act'
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: windows-latest
+            platform: win
+          - os: macos-latest
+            platform: mac
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download packaged app
+        uses: actions/download-artifact@v3
+        with:
+          name: electron-app-${{ matrix.platform }}
+          path: electron-shell/dist/
+      
+      - name: Code sign Windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          echo "Windows code signing would happen here"
+          # Add Windows code signing with certificate from secrets
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+      
+      - name: Code sign macOS
+        if: matrix.os == 'macos-latest'
+        run: |
+          echo "macOS code signing would happen here"
+          # Add macOS code signing and notarization
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      
+      - name: Upload signed artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: electron-signed-${{ matrix.platform }}
+          path: electron-shell/dist/
+          retention-days: 30
+  
+  release:
+    name: Create Release
+    needs: [code-signing]
+    # Run only on full releases (not prereleases)
+    if: github.event_name == 'release' && !github.event.release.prerelease && github.actor != 'nektos/act'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download all signed artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: release-artifacts/
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Release ${{ github.run_number }}
+          draft: true
+          prerelease: false
+          files: |
+            release-artifacts/**/*.dmg
+            release-artifacts/**/*.AppImage
+            release-artifacts/**/*.exe
+            release-artifacts/**/*.deb
+            release-artifacts/**/*.snap
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

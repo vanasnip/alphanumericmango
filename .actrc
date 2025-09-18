@@ -1,0 +1,82 @@
+# act configuration for alphanumeric-issue24-ci project
+# This file configures act to run GitHub Actions locally with optimal settings
+
+# ==========================================
+# PLATFORM AND CONTAINER CONFIGURATION
+# ==========================================
+
+# Use consistent platform and container for all workflows
+--platform ubuntu-latest=catthehacker/ubuntu:act-latest
+
+# Container architecture for Apple Silicon compatibility
+--container-architecture linux/amd64
+
+# Set default runner user for proper permissions
+--container-options "--user=root"
+
+# ==========================================
+# ENVIRONMENT AND SECRETS
+# ==========================================
+
+# Environment file for local secrets and configuration
+--env-file .env.ci
+
+# Secret file for GitHub tokens and API keys
+--secret-file .secrets.ci
+
+# ==========================================
+# ARTIFACT AND CACHE MANAGEMENT
+# ==========================================
+
+# Artifact server for collecting build outputs
+--artifact-server-path /tmp/act-artifacts
+
+# Use project-specific cache directory
+--cache-dir .act-cache
+
+# ==========================================
+# PERFORMANCE OPTIMIZATION
+# ==========================================
+
+# Reuse containers for faster subsequent runs
+--reuse
+
+# Respect .gitignore for cleaner builds
+--use-gitignore
+
+# Bind workspace for better file watching
+--bind
+
+# ==========================================
+# NETWORKING AND DOCKER
+# ==========================================
+
+# Enable network mode for services that need external access
+--container-options "--network=host"
+
+# Mount Docker socket for Docker-in-Docker builds (if needed)
+# --container-options "-v /var/run/docker.sock:/var/run/docker.sock"
+
+# ==========================================
+# DEBUGGING AND DEVELOPMENT
+# ==========================================
+
+# Verbose output for debugging (uncomment when troubleshooting)
+# --verbose
+
+# Dry run mode for testing configurations (uncomment to test)
+# --dryrun
+
+# Interactive mode for debugging failing jobs
+# --interactive
+
+# ==========================================
+# PROJECT-SPECIFIC SETTINGS
+# ==========================================
+
+# Default job concurrency for monorepo structure
+--job-concurrency 3
+
+# Input mapping for common workflow inputs
+--input branch=main
+--input environment=development

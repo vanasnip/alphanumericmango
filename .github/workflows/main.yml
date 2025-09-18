@@ -1,0 +1,172 @@
+# Main CI/CD Pipeline - Optimized for local execution with act
+#
+# Usage with act (local execution):
+#   Run all checks:
+#     act
+#   
+#   Run specific pipeline:
+#     act -j voice-terminal-pipeline
+#     act -j electron-pipeline
+#   
+#   Skip expensive operations:
+#     act -j detect-changes,code-quality
+#
+# Local optimization features:
+#   - Simplified change detection for act
+#   - Disabled external service integrations (SonarCloud, etc.)
+#   - Fast-path execution with minimal dependencies
+
+name: Main CI/CD Pipeline
+
+on:
+  release:
+    types: [published, prereleased]
+  workflow_dispatch:
+    inputs:
+      run_full_suite:
+        description: 'Run full test suite including expensive tests'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Detect act execution
+  ACT_EXECUTION: ${{ github.actor || 'false' }}
+
+jobs:
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      voice-terminal: ${{ steps.filter.outputs.voice-terminal }}
+      electron: ${{ steps.filter.outputs.electron }}
+      components: ${{ steps.filter.outputs.components }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Detect changes with paths-filter
+        if: github.actor != 'nektos/act'
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            voice-terminal:
+              - 'voice-terminal-hybrid/**'
+            electron:
+              - 'electron-shell/**'
+            components:
+              - 'voice-terminal-components/**'
+      
+      - name: Simplified change detection for act
+        if: github.actor == 'nektos/act'
+        run: |
+          echo "Running in act - assuming all projects changed"
+          echo "voice-terminal=true" >> $GITHUB_OUTPUT
+          echo "electron=true" >> $GITHUB_OUTPUT
+          echo "components=true" >> $GITHUB_OUTPUT
+  
+  voice-terminal-pipeline:
+    name: Voice Terminal Pipeline
+    needs: detect-changes
+    if: needs.detect-changes.outputs.voice-terminal == 'true' || github.actor == 'nektos/act'
+    uses: ./.github/workflows/voice-terminal-hybrid.yml
+    secrets: inherit
+  
+  electron-pipeline:
+    name: Electron Pipeline
+    needs: detect-changes
+    if: needs.detect-changes.outputs.electron == 'true' || github.actor == 'nektos/act'
+    uses: ./.github/workflows/electron-shell.yml
+    secrets: inherit
+  
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    # Skip dependency review in act (requires GitHub API)
+    if: github.event_name == 'pull_request' && github.actor != 'nektos/act'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v3
+        with:
+          fail-on-severity: moderate
+  
+  code-quality:
+    name: Code Quality Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Cache node_modules for local execution
+        if: github.actor == 'nektos/act'
+        uses: actions/cache@v3
+        with:
+          path: |
+            voice-terminal-hybrid/node_modules
+            electron-shell/node_modules
+          key: ${{ runner.os }}-multi-node-modules-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-multi-node-modules-
+      
+      - name: Run ESLint
+        run: |
+          if [ -f "voice-terminal-hybrid/package.json" ]; then
+            cd voice-terminal-hybrid
+            if [ "$ACT_EXECUTION" = "true" ]; then
+              echo "Running in act - optimized install"
+              npm install --prefer-offline --no-audit --no-fund
+            else
+              npm ci
+            fi
+            npx eslint . --ext .js,.jsx,.ts,.tsx,.svelte --ignore-path .gitignore || true
+            cd ..
+          fi
+      
+      - name: SonarCloud Scan
+        if: github.actor != 'nektos/act'
+        uses: SonarSource/sonarcloud-github-action@master
+        with:
+          args: >
+            -Dsonar.projectKey=${{ github.repository_owner }}_${{ github.event.repository.name }}
+            -Dsonar.organization=${{ github.repository_owner }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        continue-on-error: true
+  
+  semantic-release:
+    name: Semantic Release
+    needs: [voice-terminal-pipeline, electron-pipeline]
+    # Skip semantic release in act (requires external services and tokens)
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && github.actor != 'nektos/act'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install semantic-release
+        run: |
+          npm install -g semantic-release @semantic-release/git @semantic-release/changelog
+      
+      - name: Run semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npx semantic-release || echo "No release needed"

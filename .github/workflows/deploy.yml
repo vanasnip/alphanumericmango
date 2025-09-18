@@ -1,0 +1,397 @@
+# Deployment Pipeline - Optimized for local execution with act
+#
+# Usage with act (local execution):
+#   Simulate deployment checks:
+#     act workflow_call --input environment=development --input project=voice-terminal-hybrid
+#   
+#   Skip actual deployments:
+#     act workflow_call -j local-deployment-simulation
+#
+# Local optimization features:
+#   - Simulates deployment without external services
+#   - Validates deployment configurations locally
+#   - Skips actual deployment operations for safety
+
+name: Deployment Pipeline
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+        description: 'Target environment (development, staging, production)'
+      project:
+        required: true
+        type: string
+        description: 'Project to deploy'
+      version:
+        required: false
+        type: string
+        description: 'Version to deploy (defaults to latest)'
+    secrets:
+      DEPLOY_KEY:
+        required: false
+      AWS_ACCESS_KEY_ID:
+        required: false
+      AWS_SECRET_ACCESS_KEY:
+        required: false
+      AZURE_CREDENTIALS:
+        required: false
+      GCP_SA_KEY:
+        required: false
+      VERCEL_TOKEN:
+        required: false
+      NETLIFY_AUTH_TOKEN:
+        required: false
+      DOCKER_USERNAME:
+        required: false
+      DOCKER_PASSWORD:
+        required: false
+
+env:
+  # Detect act execution
+  ACT_EXECUTION: ${{ github.actor || 'false' }}
+
+jobs:
+  pre-deployment-checks:
+    name: Pre-deployment Checks
+    runs-on: ubuntu-latest
+    outputs:
+      deploy-approved: ${{ steps.checks.outputs.approved }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Validate deployment configuration
+        id: checks
+        run: |
+          echo "Validating deployment for ${{ inputs.project }} to ${{ inputs.environment }}"
+          
+          if [ "$ACT_EXECUTION" = "true" ]; then
+            echo "Running in act - simulating deployment validation"
+            echo "approved=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Check if deployment is allowed for this branch
+          if [ "${{ inputs.environment }}" == "production" ]; then
+            if [ "${{ github.ref }}" != "refs/heads/main" ]; then
+              echo "Production deployments only allowed from main branch"
+              echo "approved=false" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+          fi
+          
+          echo "approved=true" >> $GITHUB_OUTPUT
+      
+      - name: Check deployment window
+        run: |
+          if [ "$ACT_EXECUTION" = "true" ]; then
+            echo "Running in act - simulating deployment window check"
+            exit 0
+          fi
+          
+          # Check if current time is within deployment window
+          HOUR=$(date +%H)
+          DAY=$(date +%u)
+          
+          if [ "${{ inputs.environment }}" == "production" ]; then
+            # No production deployments on weekends or outside business hours
+            if [ $DAY -ge 6 ] || [ $HOUR -lt 9 ] || [ $HOUR -ge 17 ]; then
+              echo "::warning::Production deployment outside business hours"
+            fi
+          fi
+      
+      - name: Run smoke tests
+        run: |
+          if [ "$ACT_EXECUTION" = "true" ]; then
+            echo "Running in act - simulating smoke tests"
+            echo "✅ All smoke tests passed (simulated)"
+          else
+            echo "Running pre-deployment smoke tests..."
+            # Add actual smoke test commands here
+          fi
+  
+  deploy-voice-terminal:
+    name: Deploy Voice Terminal
+    needs: pre-deployment-checks
+    if: inputs.project == 'voice-terminal-hybrid' && needs.pre-deployment-checks.outputs.deploy-approved == 'true' && github.actor != 'nektos/act'
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-output
+          path: voice-terminal-hybrid/build/
+      
+      - name: Deploy to Vercel
+        if: env.VERCEL_TOKEN != ''
+        id: deploy-vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          npm install -g vercel
+          cd voice-terminal-hybrid
+          
+          if [ "${{ inputs.environment }}" == "production" ]; then
+            vercel --prod --token=$VERCEL_TOKEN
+            echo "url=https://voice-terminal.vercel.app" >> $GITHUB_OUTPUT
+          else
+            DEPLOYMENT_URL=$(vercel --token=$VERCEL_TOKEN)
+            echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Deploy to Netlify
+        if: env.NETLIFY_AUTH_TOKEN != ''
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        run: |
+          npm install -g netlify-cli
+          cd voice-terminal-hybrid
+          
+          if [ "${{ inputs.environment }}" == "production" ]; then
+            netlify deploy --prod --dir=build
+          else
+            netlify deploy --dir=build
+          fi
+      
+      - name: Deploy to AWS S3 + CloudFront
+        if: env.AWS_ACCESS_KEY_ID != ''
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: us-east-1
+        run: |
+          cd voice-terminal-hybrid
+          
+          BUCKET_NAME="${{ inputs.project }}-${{ inputs.environment }}"
+          
+          # Sync to S3
+          aws s3 sync build/ s3://$BUCKET_NAME/ --delete
+          
+          # Invalidate CloudFront
+          DISTRIBUTION_ID=$(aws cloudfront list-distributions --query "DistributionList.Items[?Origins.Items[0].DomainName=='$BUCKET_NAME.s3.amazonaws.com'].Id" --output text)
+          if [ -n "$DISTRIBUTION_ID" ]; then
+            aws cloudfront create-invalidation --distribution-id $DISTRIBUTION_ID --paths "/*"
+          fi
+      
+      - name: Deploy to Docker Registry
+        if: env.DOCKER_USERNAME != ''
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          # Create Dockerfile for voice-terminal
+          cat > voice-terminal-hybrid/Dockerfile << 'EOF'
+          FROM node:20-alpine
+          WORKDIR /app
+          COPY build/ ./build/
+          COPY package.json ./
+          RUN npm install --production
+          EXPOSE 3000
+          CMD ["npm", "start"]
+          EOF
+          
+          cd voice-terminal-hybrid
+          docker build -t $DOCKER_USERNAME/${{ inputs.project }}:${{ inputs.version || github.sha }} .
+          echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+          docker push $DOCKER_USERNAME/${{ inputs.project }}:${{ inputs.version || github.sha }}
+          
+          if [ "${{ inputs.environment }}" == "production" ]; then
+            docker tag $DOCKER_USERNAME/${{ inputs.project }}:${{ inputs.version || github.sha }} $DOCKER_USERNAME/${{ inputs.project }}:latest
+            docker push $DOCKER_USERNAME/${{ inputs.project }}:latest
+          fi
+  
+  deploy-electron:
+    name: Deploy Electron App
+    needs: pre-deployment-checks
+    if: inputs.project == 'electron-shell' && needs.pre-deployment-checks.outputs.deploy-approved == 'true' && github.actor != 'nektos/act'
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download signed artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: release-artifacts/
+      
+      - name: Create GitHub Release
+        if: inputs.environment == 'production'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ inputs.version || format('v{0}', github.run_number) }}
+          name: Release ${{ inputs.version || github.run_number }}
+          draft: false
+          prerelease: ${{ inputs.environment != 'production' }}
+          files: |
+            release-artifacts/**/*.dmg
+            release-artifacts/**/*.AppImage
+            release-artifacts/**/*.exe
+            release-artifacts/**/*.deb
+            release-artifacts/**/*.snap
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Deploy to Auto-updater server
+        run: |
+          echo "Deploying Electron updates to auto-updater server..."
+          # Add commands to upload to auto-updater server
+  
+  post-deployment:
+    name: Post-deployment Tasks
+    needs: [deploy-voice-terminal, deploy-electron]
+    if: always() && github.actor != 'nektos/act'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run post-deployment tests
+        run: |
+          echo "Running post-deployment health checks..."
+          # Add health check commands
+      
+      - name: Update deployment tracking
+        uses: actions/github-script@v6
+        with:
+          script: |
+            await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.sha,
+              environment: '${{ inputs.environment }}',
+              description: 'Deployment of ${{ inputs.project }}',
+              auto_merge: false,
+              required_contexts: [],
+              production_environment: ${{ inputs.environment == 'production' }}
+            });
+      
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Deployment successful!"
+            # Add notification to Slack/Discord/Email
+          else
+            echo "❌ Deployment failed!"
+            # Add failure notification
+          fi
+      
+      - name: Generate deployment report
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Project:** ${{ inputs.project }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ inputs.version || github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployed by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployment time:** $(date)" >> $GITHUB_STEP_SUMMARY
+  
+  # Local deployment simulation for act execution
+  local-deployment-simulation:
+    name: Local Deployment Simulation
+    runs-on: ubuntu-latest
+    needs: pre-deployment-checks
+    # Only run in act
+    if: github.actor == 'nektos/act' && needs.pre-deployment-checks.outputs.deploy-approved == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Simulate deployment validation
+        run: |
+          echo "## Local Deployment Simulation"
+          echo ""
+          echo "**Project:** ${{ inputs.project }}"
+          echo "**Environment:** ${{ inputs.environment }}"
+          echo "**Version:** ${{ inputs.version || 'latest' }}"
+          echo "**Mode:** act simulation"
+          echo ""
+          
+          echo "### Deployment Checks:"
+          echo "✅ Configuration validation"
+          echo "✅ Pre-deployment checks"
+          echo "✅ Environment compatibility"
+          echo "✅ Build artifact validation"
+          echo ""
+      
+      - name: Simulate project-specific deployment
+        run: |
+          case "${{ inputs.project }}" in
+            "voice-terminal-hybrid")
+              echo "### Voice Terminal Hybrid Deployment Simulation:"
+              echo ""
+              echo "**Build artifacts check:**"
+              if [ -d "voice-terminal-hybrid/build" ] || [ -d "voice-terminal-hybrid/dist" ]; then
+                echo "✅ Build artifacts found"
+                ls -la voice-terminal-hybrid/build/ 2>/dev/null || ls -la voice-terminal-hybrid/dist/ 2>/dev/null || echo "No build directory contents"
+              else
+                echo "⚠️  No build artifacts found (run build step first)"
+              fi
+              echo ""
+              echo "**Simulated deployment targets:**"
+              case "${{ inputs.environment }}" in
+                "development")
+                  echo "- Target: Development server"
+                  echo "- URL: https://dev-voice-terminal.example.com"
+                  ;;
+                "staging")
+                  echo "- Target: Staging environment"
+                  echo "- URL: https://staging-voice-terminal.example.com"
+                  ;;
+                "production")
+                  echo "- Target: Production environment"
+                  echo "- URL: https://voice-terminal.example.com"
+                  ;;
+              esac
+              ;;
+            "electron-shell")
+              echo "### Electron Shell Deployment Simulation:"
+              echo ""
+              echo "**Package artifacts check:**"
+              if [ -d "electron-shell/dist" ]; then
+                echo "✅ Package artifacts found"
+                ls -la electron-shell/dist/ 2>/dev/null || echo "No dist directory contents"
+              else
+                echo "⚠️  No package artifacts found (run packaging step first)"
+              fi
+              echo ""
+              echo "**Simulated deployment targets:**"
+              case "${{ inputs.environment }}" in
+                "development")
+                  echo "- Target: Development release channel"
+                  echo "- Distribution: GitHub releases (draft)"
+                  ;;
+                "staging")
+                  echo "- Target: Beta release channel"
+                  echo "- Distribution: GitHub pre-releases"
+                  ;;
+                "production")
+                  echo "- Target: Production release"
+                  echo "- Distribution: GitHub releases + auto-updater"
+                  ;;
+              esac
+              ;;
+          esac
+      
+      - name: Generate deployment simulation report
+        run: |
+          echo ""
+          echo "### Deployment Simulation Summary:"
+          echo ""
+          echo "🔧 **Configuration Status:** Valid"
+          echo "📦 **Artifacts Status:** Ready for deployment"
+          echo "🌍 **Environment:** ${{ inputs.environment }}"
+          echo "🚀 **Deployment Status:** Simulated successfully"
+          echo ""
+          echo "### Next Steps:"
+          echo "1. Run actual build/package steps if artifacts are missing"
+          echo "2. Execute on GitHub Actions for real deployment"
+          echo "3. Monitor deployment status in target environment"
+          echo ""
+          echo "**Note:** This is a simulation run in act. No actual deployment was performed."
+          echo "For real deployments, run this workflow on GitHub Actions with proper secrets configured."

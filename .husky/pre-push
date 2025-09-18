@@ -1,0 +1,61 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Comprehensive pre-push hook - runs full CI via act
+# This ensures local validation matches CI pipeline before pushing
+#
+# To bypass in emergencies: git push --no-verify
+#
+# Features:
+# - Full CI test suite via act
+# - Build verification
+# - Security scanning
+# - Performance validation
+# - Clear failure feedback
+
+echo "🔐 Running comprehensive pre-push validation..."
+echo "📊 This may take 2-5 minutes depending on changes"
+echo "💡 Use 'git push --no-verify' to bypass in emergencies"
+echo ""
+
+# Get the remote and branch being pushed to
+remote="$1"
+url="$2"
+
+# Extract branch from refs
+while read local_ref local_sha remote_ref remote_sha; do
+    if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
+        # Branch deletion - allow without checks
+        echo "🗑️  Branch deletion detected, skipping validation"
+        exit 0
+    fi
+    
+    # Get branch name
+    branch_name=$(echo "$remote_ref" | sed 's/refs\/heads\///')
+    echo "🌿 Validating push to branch: $branch_name"
+    break
+done
+
+# Run the comprehensive CI script
+echo "🚀 Executing full CI pipeline locally..."
+if ./scripts/pre-push-ci.sh; then
+    echo ""
+    echo "✅ All pre-push validations passed!"
+    echo "🎉 Safe to push to remote repository"
+    exit 0
+else
+    echo ""
+    echo "❌ Pre-push validation failed!"
+    echo "🚫 Push blocked to prevent CI failures"
+    echo ""
+    echo "🔧 To fix:"
+    echo "   1. Review the error messages above"
+    echo "   2. Fix any failing tests or builds"
+    echo "   3. Commit your fixes"
+    echo "   4. Try pushing again"
+    echo ""
+    echo "🆘 Emergency bypass:"
+    echo "   git push --no-verify"
+    echo ""
+    exit 1
+fi

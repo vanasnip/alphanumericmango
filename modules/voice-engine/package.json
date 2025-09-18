@@ -1,0 +1,19 @@
+{
+  "name": "voice-engine",
+  "version": "1.0.0",
+  "description": "Whisper.cpp integration for voice-terminal-hybrid",
+  "main": "index.ts",
+  "scripts": {
+    "test": "npx tsx test-whisper.ts",
+    "build": "tsc",
+    "dev": "npx tsx --watch index.ts"
+  },
+  "dependencies": {
+    "wavefile": "^11.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}

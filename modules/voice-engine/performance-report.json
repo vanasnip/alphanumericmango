@@ -1,0 +1,90 @@
+{
+  "timestamp": "2025-09-18T20:28:54.813Z",
+  "metrics": [
+    {
+      "scenario": "Real audio file (18.4s, 44.1kHz stereo)",
+      "iterations": 20,
+      "avgProcessingTime": 17.5,
+      "p95ProcessingTime": 19,
+      "p99ProcessingTime": 19,
+      "minProcessingTime": 16,
+      "maxProcessingTime": 19,
+      "memoryUsageMB": 1.2123260498046875,
+      "realTimeFactor": 0.0009533667465678798,
+      "queueEfficiency": 56.81970949355298
+    },
+    {
+      "scenario": "Synthetic audio (1s, 16kHz mono)",
+      "iterations": 15,
+      "avgProcessingTime": 17.933333333333334,
+      "p95ProcessingTime": 19,
+      "p99ProcessingTime": 19,
+      "minProcessingTime": 17,
+      "maxProcessingTime": 19,
+      "memoryUsageMB": 0.441558837890625,
+      "realTimeFactor": 0.017933333333333332,
+      "queueEfficiency": 55.436905589098174
+    },
+    {
+      "scenario": "Synthetic audio (5s, 16kHz mono)",
+      "iterations": 15,
+      "avgProcessingTime": 18.266666666666666,
+      "p95ProcessingTime": 19,
+      "p99ProcessingTime": 19,
+      "minProcessingTime": 17,
+      "maxProcessingTime": 19,
+      "memoryUsageMB": -1.4687957763671875,
+      "realTimeFactor": 0.0036533333333333335,
+      "queueEfficiency": 54.556523568118116
+    },
+    {
+      "scenario": "Synthetic audio (10s, 16kHz mono)",
+      "iterations": 15,
+      "avgProcessingTime": 19.266666666666666,
+      "p95ProcessingTime": 20,
+      "p99ProcessingTime": 20,
+      "minProcessingTime": 18,
+      "maxProcessingTime": 20,
+      "memoryUsageMB": -2.7094802856445312,
+      "realTimeFactor": 0.0019266666666666664,
+      "queueEfficiency": 51.83349301735121
+    },
+    {
+      "scenario": "Synthetic audio (30s, 16kHz mono)",
+      "iterations": 15,
+      "avgProcessingTime": 21.4,
+      "p95ProcessingTime": 23,
+      "p99ProcessingTime": 23,
+      "minProcessingTime": 20,
+      "maxProcessingTime": 23,
+      "memoryUsageMB": -1.6844635009765625,
+      "realTimeFactor": 0.0007133333333333333,
+      "queueEfficiency": 46.63071175585826
+    },
+    {
+      "scenario": "Parallel processing (8 concurrent 2s clips)",
+      "iterations": 8,
+      "avgProcessingTime": 81.84286062499996,
+      "p95ProcessingTime": 89.88908899999979,
+      "p99ProcessingTime": 89.88908899999979,
+      "minProcessingTime": 19.875583000000006,
+      "maxProcessingTime": 144.42107599999963,
+      "memoryUsageMB": 0,
+      "realTimeFactor": 0.04092143031249998,
+      "queueEfficiency": 54.58656629379839
+    }
+  ],
+  "memoryAnalysis": {
+    "initialMemoryMB": 9.09735107421875,
+    "finalMemoryMB": 8.804130554199219,
+    "growthMB": -0.29322052001953125,
+    "growthPerTranscription": -0.0029322052001953124
+  },
+  "systemInfo": {
+    "platform": "darwin",
+    "arch": "x64",
+    "nodeVersion": "v22.16.0",
+    "cpuCount": 12,
+    "totalMemoryGB": 32
+  }
+}

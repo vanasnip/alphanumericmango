@@ -1,0 +1,472 @@
+# Docker Compose Stack for Backend Security Infrastructure
+# AlphanumericMango Project - Production-Grade Security Foundation
+version: '3.8'
+
+services:
+  # PostgreSQL with Security Extensions
+  postgres:
+    image: postgres:15-alpine
+    container_name: alphanumeric-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-alphanumeric_secure}
+      POSTGRES_USER: ${DB_USER:-alphanumeric_app}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--auth-local=trust --auth-host=scram-sha-256"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./ssl/postgres:/etc/ssl/postgres:ro
+      - ./config/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./config/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    command: >
+      postgres
+      -c ssl=on
+      -c ssl_cert_file=/etc/ssl/postgres/server.crt
+      -c ssl_key_file=/etc/ssl/postgres/server.key
+      -c ssl_ca_file=/etc/ssl/postgres/ca.crt
+      -c config_file=/etc/postgresql/postgresql.conf
+      -c hba_file=/etc/postgresql/pg_hba.conf
+      -c log_statement=all
+      -c log_connections=on
+      -c log_disconnections=on
+      -c shared_preload_libraries=pg_stat_statements
+    networks:
+      - backend-security
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-alphanumeric_app} -d ${DB_NAME:-alphanumeric_secure}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Redis with TLS Security
+  redis:
+    image: redis:7-alpine
+    container_name: alphanumeric-redis
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+      - ./ssl/redis:/etc/ssl/redis:ro
+      - ./config/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: >
+      redis-server /usr/local/etc/redis/redis.conf
+      --requirepass ${REDIS_PASSWORD}
+      --tls-port 6379
+      --port 0
+      --tls-cert-file /etc/ssl/redis/redis.crt
+      --tls-key-file /etc/ssl/redis/redis.key
+      --tls-ca-cert-file /etc/ssl/redis/ca.crt
+      --tls-protocols "TLSv1.2 TLSv1.3"
+    networks:
+      - backend-security
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+    healthcheck:
+      test: ["CMD", "redis-cli", "--tls", "--cert", "/etc/ssl/redis/redis.crt", "--key", "/etc/ssl/redis/redis.key", "--cacert", "/etc/ssl/redis/ca.crt", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Backend API Service
+  backend-api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.backend
+      args:
+        NODE_ENV: ${NODE_ENV:-production}
+    container_name: alphanumeric-backend-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-alphanumeric_secure}
+      DB_USER: ${DB_USER:-alphanumeric_app}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_TLS: "true"
+      SESSION_MASTER_KEY: ${SESSION_MASTER_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+      API_KEY: ${API_KEY}
+      CERT_PATH: /app/certs
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ./ssl:/app/certs:ro
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+    ports:
+      - "${API_PORT:-3000}:3000"
+      - "${METRICS_PORT:-9090}:9090"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend-security
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Session Manager Service
+  session-manager:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.session-manager
+    container_name: alphanumeric-session-manager
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_TLS: "true"
+      SESSION_MASTER_KEY: ${SESSION_MASTER_KEY}
+      ENCRYPTION_SALT: ${ENCRYPTION_SALT}
+      CERT_PATH: /app/certs
+    volumes:
+      - ./ssl:/app/certs:ro
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+    ports:
+      - "${SESSION_PORT:-3001}:3001"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - backend-security
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Prometheus Monitoring
+  prometheus:
+    image: prom/prometheus:v2.40.0
+    container_name: alphanumeric-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./config/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    networks:
+      - backend-security
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+
+  # Grafana Dashboard
+  grafana:
+    image: grafana/grafana:9.0.0
+    container_name: alphanumeric-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin123}
+      GF_SECURITY_SECRET_KEY: ${GRAFANA_SECRET_KEY}
+      GF_SERVER_ROOT_URL: http://localhost:3000
+      GF_DATABASE_TYPE: postgres
+      GF_DATABASE_HOST: postgres:5432
+      GF_DATABASE_NAME: grafana
+      GF_DATABASE_USER: ${DB_USER:-alphanumeric_app}
+      GF_DATABASE_PASSWORD: ${DB_PASSWORD}
+      GF_DATABASE_SSL_MODE: require
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./config/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    depends_on:
+      prometheus:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend-security
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+
+  # Jaeger Tracing
+  jaeger:
+    image: jaegertracing/all-in-one:1.40
+    container_name: alphanumeric-jaeger
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+      SPAN_STORAGE_TYPE: badger
+      BADGER_EPHEMERAL: "false"
+      BADGER_DIRECTORY_VALUE: /badger/data
+      BADGER_DIRECTORY_KEY: /badger/key
+    volumes:
+      - jaeger_data:/badger
+    ports:
+      - "${JAEGER_UI_PORT:-16686}:16686"
+      - "${JAEGER_COLLECTOR_PORT:-14268}:14268"
+      - "${JAEGER_AGENT_PORT:-6831}:6831/udp"
+    networks:
+      - backend-security
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+
+  # Nginx Reverse Proxy with Security Headers
+  nginx:
+    image: nginx:1.24-alpine
+    container_name: alphanumeric-nginx
+    restart: unless-stopped
+    volumes:
+      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./config/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - ./logs/nginx:/var/log/nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend-api
+      - session-manager
+      - grafana
+    networks:
+      - backend-security
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+
+  # Log Aggregation (ELK Stack - Simplified)
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.5.0
+    container_name: alphanumeric-elasticsearch
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+      xpack.security.enabled: "true"
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-changeme}
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "${ELASTICSEARCH_PORT:-9200}:9200"
+    networks:
+      - backend-security
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+  # Backup Service
+  backup-service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.backup
+    container_name: alphanumeric-backup
+    restart: unless-stopped
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-alphanumeric_secure}
+      DB_USER: ${DB_USER:-alphanumeric_app}
+      DB_PASSWORD: ${DB_PASSWORD}
+      BACKUP_SCHEDULE: "0 2 * * *"
+      BACKUP_RETENTION_DAYS: 30
+      ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      BACKUP_BUCKET: ${BACKUP_BUCKET}
+    volumes:
+      - backup_data:/backups
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend-security
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+# Networks
+networks:
+  backend-security:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+    driver_opts:
+      com.docker.network.bridge.name: alphanumeric-backend
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+      com.docker.network.driver.mtu: 1500
+
+# Volumes
+volumes:
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH:-./data}/postgres
+  
+  redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH:-./data}/redis
+  
+  prometheus_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH:-./data}/prometheus
+  
+  grafana_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH:-./data}/grafana
+  
+  jaeger_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH:-./data}/jaeger
+  
+  elasticsearch_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH:-./data}/elasticsearch
+  
+  backup_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH:-./data}/backups
+
+# Security and monitoring extensions
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "100m"
+    max-file: "5"
+    labels: "service,environment"
+
+x-security: &default-security
+  security_opt:
+    - no-new-privileges:true
+  read_only: true
+  tmpfs:
+    - /tmp
+    - /var/run
+  user: "1001:1001"

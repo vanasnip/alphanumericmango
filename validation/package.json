@@ -1,0 +1,40 @@
+{
+  "name": "val-003-latency-validation",
+  "version": "1.0.0",
+  "description": "VAL-003: Local Voice Model Latency Validation Framework",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "npm run build && npm run benchmark",
+    "benchmark": "node dist/benchmark-runner.js",
+    "benchmark:phase1": "node dist/benchmark-runner.js phase1",
+    "benchmark:phase2": "node dist/benchmark-runner.js phase2",
+    "benchmark:phase3": "node dist/benchmark-runner.js phase3",
+    "benchmark:phase4": "node dist/benchmark-runner.js phase4",
+    "benchmark:phase5": "node dist/benchmark-runner.js phase5",
+    "benchmark:phase6": "node dist/benchmark-runner.js phase6",
+    "benchmark:phase7": "node dist/benchmark-runner.js phase7",
+    "report": "node dist/benchmark-runner.js report",
+    "clean": "rm -rf dist results",
+    "dev": "ts-node src/benchmark-runner.ts"
+  },
+  "keywords": [
+    "voice",
+    "latency",
+    "benchmark",
+    "whisper",
+    "coqui",
+    "tts",
+    "stt",
+    "validation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@types/node": "^20.10.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "ts-node": "^10.9.0"
+  }
+}

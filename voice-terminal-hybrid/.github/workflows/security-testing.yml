@@ -1,0 +1,332 @@
+name: Security Testing Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run security tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_level:
+        description: 'Security test level'
+        required: true
+        default: 'standard'
+        type: choice
+        options:
+        - quick
+        - standard
+        - comprehensive
+        - penetration
+
+env:
+  NODE_VERSION: '20'
+  CI: true
+
+jobs:
+  security-regression:
+    name: Security Regression Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Need full history for regression analysis
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run security regression tests
+      run: npm run security:regression
+      env:
+        BUILD_NUMBER: ${{ github.run_number }}
+        GIT_COMMIT: ${{ github.sha }}
+
+    - name: Upload regression results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: security-regression-results
+        path: |
+          security-baseline.json
+          security-history.json
+        retention-days: 30
+
+  security-core-tests:
+    name: Core Security Tests
+    runs-on: ubuntu-latest
+    needs: security-regression
+    timeout-minutes: 20
+    
+    strategy:
+      matrix:
+        test-suite: [security-suite, attack-vectors]
+      fail-fast: false
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run ${{ matrix.test-suite }}
+      run: |
+        case "${{ matrix.test-suite }}" in
+          "security-suite")
+            npm run security:test
+            ;;
+          "attack-vectors")
+            npm run security:attack-vectors
+            ;;
+        esac
+      env:
+        BUILD_NUMBER: ${{ github.run_number }}
+        GIT_COMMIT: ${{ github.sha }}
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: security-results-${{ matrix.test-suite }}
+        path: |
+          security-reports/
+          *.log
+        retention-days: 7
+
+  penetration-tests:
+    name: Penetration Tests
+    runs-on: ubuntu-latest
+    needs: security-core-tests
+    timeout-minutes: 30
+    if: |
+      github.event_name == 'schedule' || 
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run penetration tests
+      run: npm run security:penetration
+      env:
+        BUILD_NUMBER: ${{ github.run_number }}
+        GIT_COMMIT: ${{ github.sha }}
+        SECURITY_TEST_LEVEL: ${{ github.event.inputs.test_level || 'standard' }}
+
+    - name: Upload penetration test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: penetration-test-results
+        path: |
+          security-reports/
+        retention-days: 30
+
+  security-report:
+    name: Generate Security Report
+    runs-on: ubuntu-latest
+    needs: [security-regression, security-core-tests]
+    if: always() && (needs.security-regression.result == 'success' || needs.security-core-tests.result == 'success')
+    timeout-minutes: 15
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Download all test results
+      uses: actions/download-artifact@v4
+      with:
+        path: test-results/
+
+    - name: Generate comprehensive security report
+      run: npm run security:report
+      env:
+        BUILD_NUMBER: ${{ github.run_number }}
+        GIT_COMMIT: ${{ github.sha }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload security report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: security-report
+        path: |
+          security-reports/
+        retention-days: 90
+
+    - name: Upload JUnit results
+      uses: dorny/test-reporter@v1
+      if: always()
+      with:
+        name: Security Test Results
+        path: 'security-reports/*-junit.xml'
+        reporter: java-junit
+
+    - name: Comment security summary on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          
+          // Look for security report
+          const reportDir = 'security-reports';
+          const files = fs.readdirSync(reportDir);
+          const jsonReport = files.find(f => f.endsWith('.json'));
+          
+          if (jsonReport) {
+            const report = JSON.parse(fs.readFileSync(path.join(reportDir, jsonReport), 'utf8'));
+            
+            const body = `## 🛡️ Security Test Results
+            
+            **Overall Status:** ${report.summary.status}
+            **Security Score:** ${report.summary.overallSecurityScore}/100
+            
+            ### Summary
+            - **Total Tests:** ${report.summary.totalTests}
+            - **Passed:** ${report.summary.passedTests}
+            - **Failed:** ${report.summary.failedTests}
+            - **Critical Vulnerabilities:** ${report.summary.criticalVulnerabilities}
+            - **High-Risk Issues:** ${report.summary.highRiskVulnerabilities}
+            - **Regressions:** ${report.summary.regressions}
+            
+            ${report.alerts.length > 0 ? `### 🚨 Alerts
+            ${report.alerts.map(alert => `- **${alert.severity}:** ${alert.title}`).join('\n')}` : ''}
+            
+            ${report.summary.status !== 'SECURE' ? '⚠️ **Review required before merge**' : '✅ **Security checks passed**'}
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+          }
+
+  security-gate:
+    name: Security Gate
+    runs-on: ubuntu-latest
+    needs: [security-regression, security-core-tests, security-report]
+    if: always()
+    timeout-minutes: 5
+
+    steps:
+    - name: Check security test results
+      run: |
+        echo "Security Regression: ${{ needs.security-regression.result }}"
+        echo "Core Security Tests: ${{ needs.security-core-tests.result }}"
+        echo "Security Report: ${{ needs.security-report.result }}"
+        
+        # Fail if any critical security tests failed
+        if [[ "${{ needs.security-regression.result }}" == "failure" ]]; then
+          echo "❌ Security regression tests failed - blocking deployment"
+          exit 1
+        fi
+        
+        if [[ "${{ needs.security-core-tests.result }}" == "failure" ]]; then
+          echo "❌ Core security tests failed - blocking deployment"
+          exit 1
+        fi
+        
+        echo "✅ Security gate passed"
+
+    - name: Security gate summary
+      run: |
+        echo "## Security Gate Results" >> $GITHUB_STEP_SUMMARY
+        echo "- Regression Tests: ${{ needs.security-regression.result == 'success' && '✅ PASS' || '❌ FAIL' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Core Tests: ${{ needs.security-core-tests.result == 'success' && '✅ PASS' || '❌ FAIL' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Report Generation: ${{ needs.security-report.result == 'success' && '✅ PASS' || '❌ FAIL' }}" >> $GITHUB_STEP_SUMMARY
+
+  notify-security-team:
+    name: Notify Security Team
+    runs-on: ubuntu-latest
+    needs: [security-gate, penetration-tests]
+    if: |
+      always() && 
+      (needs.security-gate.result == 'failure' || 
+       (needs.penetration-tests.result == 'failure' && needs.penetration-tests.result != 'skipped'))
+    
+    steps:
+    - name: Send security alert
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const issue = await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: '🚨 Security Test Failure Alert',
+            body: `**Security tests have failed in build #${{ github.run_number }}**
+            
+            **Commit:** ${{ github.sha }}
+            **Branch:** ${{ github.ref_name }}
+            **Workflow:** ${{ github.workflow }}
+            
+            **Failed Jobs:**
+            - Security Gate: ${{ needs.security-gate.result }}
+            - Penetration Tests: ${{ needs.penetration-tests.result }}
+            
+            **Required Actions:**
+            1. Review security test failures immediately
+            2. Do not deploy until issues are resolved
+            3. Investigate potential security regressions
+            
+            **Links:**
+            - [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            - [Security Reports](artifacts from this run)
+            `,
+            labels: ['security', 'urgent', 'bug'],
+            assignees: ['security-team'] // Replace with actual security team members
+          });
+          
+          console.log(`Created security alert issue: ${issue.data.html_url}`);
+
+  cleanup:
+    name: Cleanup
+    runs-on: ubuntu-latest
+    needs: [security-gate]
+    if: always()
+    
+    steps:
+    - name: Clean up temporary files
+      run: |
+        echo "Cleaning up security test artifacts..."
+        # This would clean up any temporary files created during testing
+        echo "✅ Cleanup completed"

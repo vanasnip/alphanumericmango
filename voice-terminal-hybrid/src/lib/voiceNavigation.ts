@@ -120,6 +120,11 @@ class VoiceNavigationManager {
 	processVoiceCommand(command: string): boolean {
 		const normalizedCommand = command.toLowerCase().trim();
 		
+		// Terminal-specific command patterns
+		if (this.processTerminalCommands(normalizedCommand)) {
+			return true;
+		}
+		
 		// Try direct number first
 		const numberMatch = normalizedCommand.match(/^(\d+)$/);
 		if (numberMatch) {
@@ -131,6 +136,8 @@ class VoiceNavigationManager {
 		const contextualCommands = [
 			{ pattern: /^(?:select|go to|click)\s+(\d+)$/i, action: 'select' },
 			{ pattern: /^project\s+(\d+)$/i, action: 'project' },
+			{ pattern: /^session\s+(\d+)$/i, action: 'project' }, // Terminal sessions
+			{ pattern: /^terminal\s+(\d+)$/i, action: 'project' }, // Terminal sessions
 			{ pattern: /^message\s+(\d+)$/i, action: 'message' },
 			{ pattern: /^command\s+(\d+)$/i, action: 'command' },
 			{ pattern: /^menu\s+(\d+)$/i, action: 'menu' }
@@ -157,6 +164,78 @@ class VoiceNavigationManager {
 		}
 
 		return false;
+	}
+
+	// Process terminal-specific voice commands
+	private processTerminalCommands(command: string): boolean {
+		const terminalCommands = [
+			// Session management
+			{ pattern: /^(?:new|create)\s+(?:session|terminal)$/i, action: 'new-session' },
+			{ pattern: /^(?:close|remove)\s+(?:session|terminal)$/i, action: 'close-session' },
+			{ pattern: /^(?:next|switch)\s+(?:session|terminal)$/i, action: 'next-session' },
+			{ pattern: /^(?:previous|back)\s+(?:session|terminal)$/i, action: 'previous-session' },
+			{ pattern: /^(?:split|divide)\s+(?:view|screen|terminal)$/i, action: 'split-view' },
+			
+			// Terminal navigation
+			{ pattern: /^(?:scroll|move)\s+up$/i, action: 'scroll-up' },
+			{ pattern: /^(?:scroll|move)\s+down$/i, action: 'scroll-down' },
+			{ pattern: /^(?:scroll|go)\s+(?:to\s+)?top$/i, action: 'scroll-top' },
+			{ pattern: /^(?:scroll|go)\s+(?:to\s+)?bottom$/i, action: 'scroll-bottom' },
+			{ pattern: /^clear\s+(?:terminal|screen|output)$/i, action: 'clear-terminal' },
+			
+			// Input commands
+			{ pattern: /^(?:focus|select)\s+(?:input|command)$/i, action: 'focus-input' },
+			{ pattern: /^(?:voice|speak)\s+(?:input|command)$/i, action: 'voice-input' },
+			{ pattern: /^(?:clear|empty)\s+(?:input|command)$/i, action: 'clear-input' },
+			{ pattern: /^(?:execute|run)\s+command$/i, action: 'execute-command' },
+			
+			// Copy commands
+			{ pattern: /^copy\s+(?:all|output|everything)$/i, action: 'copy-all' },
+			{ pattern: /^copy\s+(?:line|selected)$/i, action: 'copy-selection' },
+			
+			// Search commands
+			{ pattern: /^(?:search|find)\s+(.+)$/i, action: 'search' },
+			{ pattern: /^(?:find\s+)?next$/i, action: 'search-next' },
+			{ pattern: /^(?:find\s+)?previous$/i, action: 'search-previous' }
+		];
+
+		for (const cmd of terminalCommands) {
+			const match = command.match(cmd.pattern);
+			if (match) {
+				this.executeTerminalAction(cmd.action, match[1] || '');
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	// Execute terminal-specific actions
+	private executeTerminalAction(action: string, parameter?: string): void {
+		// Emit custom event for terminal components to handle
+		const event = new CustomEvent('voice-terminal-command', {
+			detail: { action, parameter, timestamp: Date.now() }
+		});
+		
+		if (typeof window !== 'undefined') {
+			window.dispatchEvent(event);
+		}
+		
+		// Also notify through callback if registered
+		if (this.terminalCommandCallback) {
+			this.terminalCommandCallback(action, parameter);
+		}
+	}
+
+	// Terminal command callback registration
+	private terminalCommandCallback?: (action: string, parameter?: string) => void;
+
+	setTerminalCommandCallback(callback: (action: string, parameter?: string) => void): void {
+		this.terminalCommandCallback = callback;
+	}
+
+	clearTerminalCommandCallback(): void {
+		this.terminalCommandCallback = undefined;
 	}
 
 	// Execute item callback

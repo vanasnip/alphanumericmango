@@ -1,0 +1,594 @@
+# Advanced Monitoring and Alerting for Voice Terminal Scaling
+# Comprehensive observability stack with custom metrics
+# Real-time scaling decision monitoring and performance tracking
+# Integration with Prometheus, Grafana, and custom metric collectors
+
+# Namespace for monitoring components
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: voice-terminal-monitoring
+  labels:
+    name: voice-terminal-monitoring
+    monitoring: enabled
+
+---
+# Prometheus Configuration for Custom Metrics
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-voice-terminal-config
+  namespace: voice-terminal-monitoring
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      external_labels:
+        cluster: voice-terminal
+        environment: production
+    
+    rule_files:
+      - "/etc/prometheus/rules/*.yml"
+    
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets:
+              - alertmanager.voice-terminal-monitoring.svc.cluster.local:9093
+    
+    scrape_configs:
+    # WebSocket Proxy Metrics
+    - job_name: 'websocket-proxy'
+      kubernetes_sd_configs:
+        - role: pod
+          namespaces:
+            names:
+              - voice-terminal
+      relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_label_app]
+          action: keep
+          regex: websocket-proxy
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+          action: keep
+          regex: true
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+          action: replace
+          target_label: __metrics_path__
+          regex: (.+)
+        - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+          action: replace
+          regex: ([^:]+)(?::\d+)?;(\d+)
+          replacement: $1:$2
+          target_label: __address__
+      scrape_interval: 10s
+      metrics_path: /metrics
+    
+    # Tmux Backend Metrics
+    - job_name: 'tmux-backend'
+      kubernetes_sd_configs:
+        - role: pod
+          namespaces:
+            names:
+              - voice-terminal
+      relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_label_app]
+          action: keep
+          regex: tmux-backend
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+          action: keep
+          regex: true
+      scrape_interval: 15s
+      metrics_path: /metrics
+    
+    # Redis Cluster Metrics
+    - job_name: 'redis-cluster'
+      static_configs:
+        - targets:
+          - redis-cluster-metrics.voice-terminal.svc.cluster.local:9121
+      scrape_interval: 30s
+    
+    # Kubernetes API Server Metrics
+    - job_name: 'kubernetes-apiservers'
+      kubernetes_sd_configs:
+        - role: endpoints
+      scheme: https
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      relabel_configs:
+        - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+          action: keep
+          regex: default;kubernetes;https
+    
+    # Node Exporter Metrics
+    - job_name: 'kubernetes-nodes'
+      kubernetes_sd_configs:
+        - role: node
+      scheme: https
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      relabel_configs:
+        - action: labelmap
+          regex: __meta_kubernetes_node_label_(.+)
+        - target_label: __address__
+          replacement: kubernetes.default.svc:443
+        - source_labels: [__meta_kubernetes_node_name]
+          regex: (.+)
+          target_label: __metrics_path__
+          replacement: /api/v1/nodes/${1}/proxy/metrics
+    
+    # Custom HPA Metrics
+    - job_name: 'custom-hpa-metrics'
+      kubernetes_sd_configs:
+        - role: pod
+          namespaces:
+            names:
+              - voice-terminal
+      relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_label_component]
+          action: keep
+          regex: hpa-metrics-exporter
+      scrape_interval: 5s
+
+  # Alerting Rules
+  voice-terminal-rules.yml: |
+    groups:
+    - name: voice-terminal-scaling
+      rules:
+      # WebSocket Connection Scaling Alerts
+      - alert: WebSocketConnectionsHigh
+        expr: websocket_active_connections > 800
+        for: 2m
+        labels:
+          severity: warning
+          component: websocket-proxy
+        annotations:
+          summary: "High WebSocket connection count"
+          description: "WebSocket proxy {{ $labels.instance }} has {{ $value }} active connections (>800)"
+          runbook_url: "https://runbooks.voice-terminal.com/websocket-scaling"
+      
+      - alert: WebSocketConnectionsCritical
+        expr: websocket_active_connections > 950
+        for: 1m
+        labels:
+          severity: critical
+          component: websocket-proxy
+        annotations:
+          summary: "Critical WebSocket connection count"
+          description: "WebSocket proxy {{ $labels.instance }} has {{ $value }} active connections (>950)"
+          runbook_url: "https://runbooks.voice-terminal.com/websocket-scaling"
+      
+      # Scaling Performance Alerts
+      - alert: SlowScalingResponse
+        expr: increase(hpa_scaling_events_total[5m]) > 0 and (time() - hpa_last_scale_time) > 300
+        for: 2m
+        labels:
+          severity: warning
+          component: hpa
+        annotations:
+          summary: "HPA scaling response is slow"
+          description: "HPA scaling took more than 5 minutes to respond"
+      
+      # Session Persistence Alerts
+      - alert: RedisClusterDown
+        expr: up{job="redis-cluster"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: redis
+        annotations:
+          summary: "Redis cluster is down"
+          description: "Redis cluster instance {{ $labels.instance }} is down"
+      
+      - alert: SessionStorageHighMemory
+        expr: redis_memory_used_percent > 85
+        for: 5m
+        labels:
+          severity: warning
+          component: redis
+        annotations:
+          summary: "Redis memory usage high"
+          description: "Redis instance {{ $labels.instance }} memory usage is {{ $value }}%"
+      
+      # Performance Degradation Alerts
+      - alert: WebSocketLatencyHigh
+        expr: histogram_quantile(0.95, websocket_request_duration_seconds_bucket) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          component: websocket-proxy
+        annotations:
+          summary: "High WebSocket latency"
+          description: "95th percentile latency is {{ $value }}s for {{ $labels.instance }}"
+      
+      # Resource Utilization Alerts
+      - alert: NodeResourceExhaustion
+        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) < 0.1
+        for: 3m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "Node running out of memory"
+          description: "Node {{ $labels.instance }} has less than 10% memory available"
+      
+      # Tmux Backend Alerts
+      - alert: TmuxSessionsHigh
+        expr: tmux_active_sessions > 100
+        for: 2m
+        labels:
+          severity: warning
+          component: tmux-backend
+        annotations:
+          summary: "High tmux session count"
+          description: "Tmux backend {{ $labels.instance }} has {{ $value }} active sessions"
+      
+      # Auto-scaling Circuit Breaker
+      - alert: ScalingCircuitBreakerOpen
+        expr: scaling_circuit_breaker_state == 1
+        for: 0s
+        labels:
+          severity: critical
+          component: scaling
+        annotations:
+          summary: "Scaling circuit breaker is open"
+          description: "Auto-scaling has been disabled due to repeated failures"
+
+---
+# Custom Metrics Exporter for HPA
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hpa-metrics-exporter
+  namespace: voice-terminal
+  labels:
+    component: hpa-metrics-exporter
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      component: hpa-metrics-exporter
+  template:
+    metadata:
+      labels:
+        component: hpa-metrics-exporter
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: hpa-metrics-exporter
+      containers:
+      - name: exporter
+        image: voice-terminal/hpa-metrics-exporter:latest
+        ports:
+        - containerPort: 8080
+          name: metrics
+        env:
+        - name: REDIS_URL
+          value: "redis://redis-cluster.voice-terminal.svc.cluster.local:6379"
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-auth
+              key: password
+        - name: WEBSOCKET_SERVICE_URL
+          value: "http://websocket-proxy.voice-terminal.svc.cluster.local:8080"
+        - name: TMUX_SERVICE_URL
+          value: "http://tmux-backend.voice-terminal.svc.cluster.local:9090"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+
+---
+# Service Account for Metrics Exporter
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hpa-metrics-exporter
+  namespace: voice-terminal
+
+---
+# ClusterRole for Metrics Access
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: hpa-metrics-reader
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "endpoints"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["autoscaling"]
+  resources: ["horizontalpodautoscalers"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["metrics.k8s.io"]
+  resources: ["*"]
+  verbs: ["get", "list"]
+- apiGroups: ["custom.metrics.k8s.io"]
+  resources: ["*"]
+  verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: hpa-metrics-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: hpa-metrics-reader
+subjects:
+- kind: ServiceAccount
+  name: hpa-metrics-exporter
+  namespace: voice-terminal
+
+---
+# Grafana Dashboard ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: voice-terminal-dashboard
+  namespace: voice-terminal-monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  voice-terminal-scaling.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "Voice Terminal Scaling Dashboard",
+        "description": "Real-time monitoring of WebSocket connections, scaling events, and performance metrics",
+        "tags": ["voice-terminal", "scaling", "websocket"],
+        "timezone": "UTC",
+        "refresh": "30s",
+        "time": {
+          "from": "now-1h",
+          "to": "now"
+        },
+        "panels": [
+          {
+            "title": "WebSocket Connections",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "sum(websocket_active_connections)",
+                "legendFormat": "Active Connections"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "thresholds"
+                },
+                "thresholds": {
+                  "steps": [
+                    {"color": "green", "value": null},
+                    {"color": "yellow", "value": 8000},
+                    {"color": "red", "value": 9500}
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "title": "Scaling Events",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(hpa_scaling_events_total[5m])",
+                "legendFormat": "Scale Events/min"
+              }
+            ]
+          },
+          {
+            "title": "Pod Replica Count",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "kube_deployment_status_replicas{deployment=\"websocket-proxy\"}",
+                "legendFormat": "WebSocket Replicas"
+              },
+              {
+                "expr": "kube_deployment_status_replicas{deployment=\"tmux-backend\"}",
+                "legendFormat": "Tmux Replicas"
+              }
+            ]
+          },
+          {
+            "title": "Redis Cluster Health",
+            "type": "table",
+            "targets": [
+              {
+                "expr": "redis_cluster_nodes",
+                "legendFormat": "Cluster Nodes"
+              },
+              {
+                "expr": "redis_memory_used_percent",
+                "legendFormat": "Memory Usage %"
+              }
+            ]
+          },
+          {
+            "title": "Response Time Percentiles",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.50, websocket_request_duration_seconds_bucket)",
+                "legendFormat": "p50"
+              },
+              {
+                "expr": "histogram_quantile(0.95, websocket_request_duration_seconds_bucket)",
+                "legendFormat": "p95"
+              },
+              {
+                "expr": "histogram_quantile(0.99, websocket_request_duration_seconds_bucket)",
+                "legendFormat": "p99"
+              }
+            ]
+          },
+          {
+            "title": "Error Rate",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(websocket_requests_total{status=~\"5..\"}[5m]) / rate(websocket_requests_total[5m])",
+                "legendFormat": "Error Rate"
+              }
+            ]
+          }
+        ]
+      }
+    }
+
+---
+# AlertManager Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: voice-terminal-monitoring
+data:
+  alertmanager.yml: |
+    global:
+      smtp_smarthost: 'localhost:587'
+      smtp_from: 'alerts@voice-terminal.com'
+    
+    route:
+      group_by: ['alertname', 'component']
+      group_wait: 10s
+      group_interval: 10s
+      repeat_interval: 1h
+      receiver: 'web.hook'
+      routes:
+      - match:
+          severity: critical
+        receiver: 'critical-alerts'
+        repeat_interval: 30m
+      - match:
+          component: scaling
+        receiver: 'scaling-alerts'
+    
+    receivers:
+    - name: 'web.hook'
+      webhook_configs:
+      - url: 'http://webhook.voice-terminal.com/alerts'
+        send_resolved: true
+    
+    - name: 'critical-alerts'
+      slack_configs:
+      - api_url: 'SLACK_WEBHOOK_URL'
+        channel: '#voice-terminal-critical'
+        title: 'Critical Alert: {{ .GroupLabels.alertname }}'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+        send_resolved: true
+      email_configs:
+      - to: 'oncall@voice-terminal.com'
+        subject: 'CRITICAL: {{ .GroupLabels.alertname }}'
+        body: |
+          Alert: {{ .GroupLabels.alertname }}
+          {{ range .Alerts }}
+          Description: {{ .Annotations.description }}
+          Runbook: {{ .Annotations.runbook_url }}
+          {{ end }}
+    
+    - name: 'scaling-alerts'
+      slack_configs:
+      - api_url: 'SLACK_WEBHOOK_URL'
+        channel: '#voice-terminal-scaling'
+        title: 'Scaling Alert: {{ .GroupLabels.alertname }}'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+
+---
+# Service Monitor for Custom Metrics
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: voice-terminal-metrics
+  namespace: voice-terminal-monitoring
+  labels:
+    app: voice-terminal
+spec:
+  selector:
+    matchLabels:
+      monitoring: enabled
+  namespaceSelector:
+    matchNames:
+    - voice-terminal
+  endpoints:
+  - port: metrics
+    interval: 15s
+    path: /metrics
+    honorLabels: true
+
+---
+# Prometheus Rule for Recording Rules
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: voice-terminal-recording-rules
+  namespace: voice-terminal-monitoring
+spec:
+  groups:
+  - name: voice-terminal-recording
+    interval: 30s
+    rules:
+    # Connection density recording rules
+    - record: voice_terminal:websocket_connections_per_pod
+      expr: websocket_active_connections / on() kube_deployment_status_replicas{deployment="websocket-proxy"}
+    
+    - record: voice_terminal:websocket_utilization_rate
+      expr: voice_terminal:websocket_connections_per_pod / 1000
+    
+    # Session capacity recording rules
+    - record: voice_terminal:tmux_sessions_per_pod
+      expr: tmux_active_sessions / on() kube_deployment_status_replicas{deployment="tmux-backend"}
+    
+    - record: voice_terminal:session_utilization_rate
+      expr: voice_terminal:tmux_sessions_per_pod / 100
+    
+    # Performance recording rules
+    - record: voice_terminal:websocket_latency_p95_5m
+      expr: histogram_quantile(0.95, rate(websocket_request_duration_seconds_bucket[5m]))
+    
+    - record: voice_terminal:error_rate_5m
+      expr: rate(websocket_requests_total{status=~"5.."}[5m]) / rate(websocket_requests_total[5m])
+
+---
+# PodMonitor for Redis Cluster
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: redis-cluster-monitor
+  namespace: voice-terminal-monitoring
+spec:
+  selector:
+    matchLabels:
+      app: redis-cluster
+  namespaceSelector:
+    matchNames:
+    - voice-terminal
+  podMetricsEndpoints:
+  - port: metrics
+    interval: 30s
+    path: /metrics

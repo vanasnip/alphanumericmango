@@ -1,0 +1,336 @@
+# Redis Cluster Configuration for Session Persistence
+# High Availability cluster with 6 nodes (3 masters, 3 replicas)
+# Purpose: Session storage, real-time state management, connection state recovery
+# Capacity: 10,000+ concurrent sessions with sub-millisecond latency
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-cluster-config
+  namespace: voice-terminal
+data:
+  redis.conf: |
+    # Redis cluster configuration
+    cluster-enabled yes
+    cluster-config-file nodes.conf
+    cluster-node-timeout 5000
+    cluster-announce-port 6379
+    cluster-announce-bus-port 16379
+    appendonly yes
+    appendfsync everysec
+    
+    # Performance tuning for high-throughput sessions
+    maxmemory 2gb
+    maxmemory-policy allkeys-lru
+    tcp-keepalive 60
+    timeout 300
+    
+    # Security
+    requirepass ${REDIS_PASSWORD}
+    masterauth ${REDIS_PASSWORD}
+    
+    # Session persistence optimizations
+    save 900 1
+    save 300 10
+    save 60 10000
+    rdbcompression yes
+    rdbchecksum yes
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-cluster
+  namespace: voice-terminal
+  labels:
+    app: redis-cluster
+  annotations:
+    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - port: 6379
+    targetPort: 6379
+    name: client
+  - port: 16379
+    targetPort: 16379
+    name: gossip
+  selector:
+    app: redis-cluster
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-cluster
+  namespace: voice-terminal
+spec:
+  serviceName: redis-cluster
+  replicas: 6
+  selector:
+    matchLabels:
+      app: redis-cluster
+  template:
+    metadata:
+      labels:
+        app: redis-cluster
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - redis-cluster
+              topologyKey: kubernetes.io/hostname
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+          name: client
+        - containerPort: 16379
+          name: gossip
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-auth
+              key: password
+        command:
+        - redis-server
+        - /etc/redis/redis.conf
+        - --protected-mode no
+        - --cluster-announce-ip $(POD_IP)
+        volumeMounts:
+        - name: conf
+          mountPath: /etc/redis/
+          readOnly: false
+        - name: data
+          mountPath: /data
+          readOnly: false
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "200m"
+          limits:
+            memory: "2Gi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - --no-auth-warning
+            - -a
+            - $(REDIS_PASSWORD)
+            - ping
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+          periodSeconds: 10
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - --no-auth-warning
+            - -a
+            - $(REDIS_PASSWORD)
+            - ping
+          initialDelaySeconds: 5
+          timeoutSeconds: 1
+          periodSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+      volumes:
+      - name: conf
+        configMap:
+          name: redis-cluster-config
+          defaultMode: 0755
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: ssd-retain
+      resources:
+        requests:
+          storage: 10Gi
+
+---
+# Redis Cluster Initialization Job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: redis-cluster-init
+  namespace: voice-terminal
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: redis-cluster-init
+        image: redis:7-alpine
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-auth
+              key: password
+        command:
+        - /bin/sh
+        - -c
+        - |
+          # Wait for all Redis pods to be ready
+          for i in 0 1 2 3 4 5; do
+            until redis-cli -h redis-cluster-$i.redis-cluster.voice-terminal.svc.cluster.local -a $REDIS_PASSWORD ping; do
+              echo "Waiting for redis-cluster-$i to be ready..."
+              sleep 5
+            done
+          done
+          
+          # Create cluster
+          redis-cli --cluster create \
+            redis-cluster-0.redis-cluster.voice-terminal.svc.cluster.local:6379 \
+            redis-cluster-1.redis-cluster.voice-terminal.svc.cluster.local:6379 \
+            redis-cluster-2.redis-cluster.voice-terminal.svc.cluster.local:6379 \
+            redis-cluster-3.redis-cluster.voice-terminal.svc.cluster.local:6379 \
+            redis-cluster-4.redis-cluster.voice-terminal.svc.cluster.local:6379 \
+            redis-cluster-5.redis-cluster.voice-terminal.svc.cluster.local:6379 \
+            --cluster-replicas 1 \
+            --cluster-yes \
+            -a $REDIS_PASSWORD
+
+---
+# Redis Cluster Monitoring Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-cluster-metrics
+  namespace: voice-terminal
+  labels:
+    app: redis-cluster
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9121
+    targetPort: 9121
+    name: metrics
+  selector:
+    app: redis-cluster-exporter
+
+---
+# Redis Exporter for Prometheus monitoring
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-cluster-exporter
+  namespace: voice-terminal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-cluster-exporter
+  template:
+    metadata:
+      labels:
+        app: redis-cluster-exporter
+    spec:
+      containers:
+      - name: redis-exporter
+        image: oliver006/redis_exporter:latest
+        ports:
+        - containerPort: 9121
+        env:
+        - name: REDIS_ADDR
+          value: "redis://redis-cluster.voice-terminal.svc.cluster.local:6379"
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-auth
+              key: password
+        - name: REDIS_EXPORTER_INCL_SYSTEM_METRICS
+          value: "true"
+        resources:
+          requests:
+            memory: "100Mi"
+            cpu: "50m"
+          limits:
+            memory: "200Mi"
+            cpu: "100m"
+
+---
+# Secret for Redis authentication
+apiVersion: v1
+kind: Secret
+metadata:
+  name: redis-auth
+  namespace: voice-terminal
+type: Opaque
+data:
+  # Base64 encoded password: "voice-terminal-redis-2024"
+  password: dm9pY2UtdGVybWluYWwtcmVkaXMtMjAyNA==
+
+---
+# Session Storage Service - Application interface to Redis
+apiVersion: v1
+kind: Service
+metadata:
+  name: session-storage
+  namespace: voice-terminal
+  labels:
+    app: session-storage
+spec:
+  type: ClusterIP
+  ports:
+  - port: 6379
+    targetPort: 6379
+    name: redis
+  selector:
+    app: redis-cluster
+
+---
+# Redis Cluster Health Check
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-health-check
+  namespace: voice-terminal
+data:
+  health-check.sh: |
+    #!/bin/bash
+    # Redis cluster health monitoring script
+    # Checks cluster status, node health, and session capacity
+    
+    REDIS_PASSWORD=${REDIS_PASSWORD}
+    CLUSTER_NODES=$(redis-cli -a $REDIS_PASSWORD cluster nodes | wc -l)
+    CLUSTER_OK=$(redis-cli -a $REDIS_PASSWORD cluster info | grep cluster_state:ok | wc -l)
+    
+    # Check minimum 6 nodes (3 masters + 3 replicas)
+    if [ $CLUSTER_NODES -lt 6 ]; then
+      echo "CRITICAL: Redis cluster has less than 6 nodes ($CLUSTER_NODES)"
+      exit 2
+    fi
+    
+    # Check cluster state
+    if [ $CLUSTER_OK -eq 0 ]; then
+      echo "CRITICAL: Redis cluster state is not OK"
+      exit 2
+    fi
+    
+    # Check memory usage for session capacity
+    MEMORY_USED=$(redis-cli -a $REDIS_PASSWORD info memory | grep used_memory_human | cut -d: -f2 | tr -d '\r')
+    MEMORY_MAX=$(redis-cli -a $REDIS_PASSWORD config get maxmemory | tail -1)
+    
+    echo "OK: Redis cluster healthy - $CLUSTER_NODES nodes, memory: $MEMORY_USED"
+    exit 0

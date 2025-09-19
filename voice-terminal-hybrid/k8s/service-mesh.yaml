@@ -1,0 +1,546 @@
+# Istio Service Mesh Configuration
+# Advanced traffic management, security, and observability
+# Support for 1000+ concurrent connections with intelligent routing
+# Circuit breakers, retries, timeouts, and distributed tracing
+
+# Istio Gateway for external traffic
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: voice-terminal-gateway
+  namespace: voice-terminal
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  # HTTPS WebSocket traffic
+  - port:
+      number: 443
+      name: https-websocket
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: voice-terminal-tls
+    hosts:
+    - voice-terminal.example.com
+    - ws.voice-terminal.example.com
+  # HTTP redirect
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - voice-terminal.example.com
+    - ws.voice-terminal.example.com
+    tls:
+      httpsRedirect: true
+
+---
+# Virtual Service for intelligent routing
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: websocket-routing
+  namespace: voice-terminal
+spec:
+  hosts:
+  - voice-terminal.example.com
+  - ws.voice-terminal.example.com
+  gateways:
+  - voice-terminal-gateway
+  - mesh
+  http:
+  # WebSocket connections with session affinity
+  - match:
+    - uri:
+        prefix: "/ws"
+    - headers:
+        upgrade:
+          exact: websocket
+    route:
+    - destination:
+        host: websocket-proxy.voice-terminal.svc.cluster.local
+        port:
+          number: 8080
+      weight: 100
+    timeout: 3600s
+    retries:
+      attempts: 3
+      perTryTimeout: 30s
+      retryOn: gateway-error,connect-failure,refused-stream
+    headers:
+      request:
+        set:
+          x-websocket-route: "true"
+          x-session-affinity: "required"
+        add:
+          x-forwarded-proto: "https"
+  # API endpoints with load balancing
+  - match:
+    - uri:
+        prefix: "/api"
+    route:
+    - destination:
+        host: websocket-proxy.voice-terminal.svc.cluster.local
+        port:
+          number: 8080
+        subset: stable
+      weight: 90
+    - destination:
+        host: websocket-proxy.voice-terminal.svc.cluster.local
+        port:
+          number: 8080
+        subset: canary
+      weight: 10
+    fault:
+      delay:
+        percentage:
+          value: 0.1
+        fixedDelay: 5s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+      retryOn: 5xx,reset,connect-failure,refused-stream
+  # Health check endpoints
+  - match:
+    - uri:
+        exact: "/health"
+    route:
+    - destination:
+        host: websocket-proxy.voice-terminal.svc.cluster.local
+        port:
+          number: 8080
+    timeout: 5s
+
+---
+# Destination Rule for load balancing and circuit breaker
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: websocket-proxy-destination
+  namespace: voice-terminal
+spec:
+  host: websocket-proxy.voice-terminal.svc.cluster.local
+  trafficPolicy:
+    # Load balancing for WebSocket connections
+    loadBalancer:
+      consistentHash:
+        httpHeaderName: "x-session-id"
+    # Connection pool settings
+    connectionPool:
+      tcp:
+        maxConnections: 1000
+        connectTimeout: 30s
+        keepAlive:
+          time: 7200s
+          interval: 75s
+      http:
+        http1MaxPendingRequests: 100
+        http2MaxRequests: 1000
+        maxRequestsPerConnection: 10
+        maxRetries: 3
+        consecutiveGatewayErrors: 3
+        interval: 30s
+        baseEjectionTime: 30s
+        maxEjectionPercent: 50
+        minHealthPercent: 50
+    # Circuit breaker
+    outlierDetection:
+      consecutiveGatewayErrors: 3
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+      minHealthPercent: 50
+      splitExternalLocalOriginErrors: true
+  subsets:
+  # Stable version subset
+  - name: stable
+    labels:
+      version: stable
+    trafficPolicy:
+      connectionPool:
+        tcp:
+          maxConnections: 800
+  # Canary version subset  
+  - name: canary
+    labels:
+      version: canary
+    trafficPolicy:
+      connectionPool:
+        tcp:
+          maxConnections: 200
+
+---
+# Destination Rule for tmux backend
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: tmux-backend-destination
+  namespace: voice-terminal
+spec:
+  host: tmux-backend.voice-terminal.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_CONN
+    connectionPool:
+      tcp:
+        maxConnections: 500
+        connectTimeout: 10s
+      http:
+        http1MaxPendingRequests: 50
+        http2MaxRequests: 500
+        maxRequestsPerConnection: 100
+        consecutiveGatewayErrors: 3
+    outlierDetection:
+      consecutiveGatewayErrors: 3
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 30
+
+---
+# Service Entry for Redis cluster
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: redis-cluster-entry
+  namespace: voice-terminal
+spec:
+  hosts:
+  - redis-cluster.voice-terminal.svc.cluster.local
+  ports:
+  - number: 6379
+    name: redis
+    protocol: TCP
+  location: MESH_EXTERNAL
+  resolution: DNS
+
+---
+# Authorization Policy for secure access
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: websocket-access-control
+  namespace: voice-terminal
+spec:
+  selector:
+    matchLabels:
+      app: websocket-proxy
+  rules:
+  # Allow WebSocket connections from authenticated users
+  - from:
+    - source:
+        requestPrincipals: ["*"]
+    to:
+    - operation:
+        paths: ["/ws", "/ws/*"]
+        methods: ["GET"]
+    when:
+    - key: request.headers[upgrade]
+      values: ["websocket"]
+  # Allow API access with rate limiting
+  - from:
+    - source:
+        requestPrincipals: ["*"]
+    to:
+    - operation:
+        paths: ["/api/*"]
+        methods: ["GET", "POST", "PUT", "DELETE"]
+    when:
+    - key: source.ip
+      notValues: ["127.0.0.1"]
+  # Allow health checks from anywhere
+  - to:
+    - operation:
+        paths: ["/health", "/metrics"]
+        methods: ["GET"]
+
+---
+# PeerAuthentication for mTLS
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: voice-terminal-mtls
+  namespace: voice-terminal
+spec:
+  mtls:
+    mode: STRICT
+
+---
+# RequestAuthentication for JWT validation
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: websocket-jwt
+  namespace: voice-terminal
+spec:
+  selector:
+    matchLabels:
+      app: websocket-proxy
+  jwtRules:
+  - issuer: "https://auth.voice-terminal.example.com"
+    jwksUri: "https://auth.voice-terminal.example.com/.well-known/jwks.json"
+    audiences:
+    - "voice-terminal-api"
+    forwardOriginalToken: true
+
+---
+# Telemetry configuration for observability
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: websocket-telemetry
+  namespace: voice-terminal
+spec:
+  metrics:
+  - providers:
+    - name: prometheus
+  - overrides:
+    - match:
+        metric: ALL_METRICS
+      tagOverrides:
+        connection_type:
+          value: |
+            has(request.headers['upgrade']) && request.headers['upgrade'] == 'websocket' 
+            ? 'websocket' : 'http'
+        session_id:
+          value: request.headers['x-session-id'] | 'unknown'
+  accessLogging:
+  - providers:
+    - name: otel
+  tracing:
+  - providers:
+    - name: jaeger
+    customTags:
+      websocket_connection:
+        header:
+          name: "upgrade"
+      session_id:
+        header:
+          name: "x-session-id"
+      connection_duration:
+        environment:
+          name: "CONNECTION_DURATION"
+
+---
+# Envoy Filter for WebSocket optimization
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: websocket-optimization
+  namespace: voice-terminal
+spec:
+  workloadSelector:
+    labels:
+      app: websocket-proxy
+  configPatches:
+  # HTTP connection manager optimization
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.local_ratelimit
+        typed_config:
+          "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+          type_url: type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+          value:
+            stat_prefix: websocket_rate_limit
+            token_bucket:
+              max_tokens: 1000
+              tokens_per_fill: 100
+              fill_interval: 1s
+            filter_enabled:
+              runtime_key: websocket_rate_limit_enabled
+              default_value:
+                numerator: 100
+                denominator: HUNDRED
+            filter_enforced:
+              runtime_key: websocket_rate_limit_enforced
+              default_value:
+                numerator: 100
+                denominator: HUNDRED
+  # WebSocket upgrade configuration
+  - applyTo: HTTP_ROUTE
+    match:
+      context: SIDECAR_INBOUND
+    patch:
+      operation: MERGE
+      value:
+        route:
+          upgrade_configs:
+          - upgrade_type: websocket
+            enabled: true
+
+---
+# Sidecar configuration for resource optimization
+apiVersion: networking.istio.io/v1beta1
+kind: Sidecar
+metadata:
+  name: websocket-proxy-sidecar
+  namespace: voice-terminal
+spec:
+  workloadSelector:
+    labels:
+      app: websocket-proxy
+  ingress:
+  - port:
+      number: 8080
+      protocol: HTTP
+      name: websocket-port
+    defaultEndpoint: 127.0.0.1:8080
+    captureMode: IPTABLES
+  egress:
+  # Redis cluster access
+  - port:
+      number: 6379
+      protocol: TCP
+      name: redis
+    hosts:
+    - "./redis-cluster.voice-terminal.svc.cluster.local"
+  # Tmux backend access
+  - port:
+      number: 9090
+      protocol: HTTP
+      name: tmux-backend
+    hosts:
+    - "./tmux-backend.voice-terminal.svc.cluster.local"
+  # External services
+  - port:
+      number: 443
+      protocol: HTTPS
+      name: external-https
+    hosts:
+    - "auth.voice-terminal.example.com"
+  # Istio system access
+  - hosts:
+    - "istio-system/*"
+
+---
+# Workspace Groups for traffic isolation
+apiVersion: networking.istio.io/v1beta1
+kind: WorkloadGroup
+metadata:
+  name: websocket-proxy-group
+  namespace: voice-terminal
+spec:
+  metadata:
+    labels:
+      app: websocket-proxy
+      version: stable
+  template:
+    ports:
+      websocket: 8080
+      metrics: 9090
+    serviceAccount: websocket-proxy
+
+---
+# Traffic mirroring for testing
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: websocket-testing-mirror
+  namespace: voice-terminal
+spec:
+  hosts:
+  - websocket-proxy.voice-terminal.svc.cluster.local
+  http:
+  - match:
+    - headers:
+        x-test-traffic:
+          exact: "true"
+    route:
+    - destination:
+        host: websocket-proxy.voice-terminal.svc.cluster.local
+        subset: stable
+    mirror:
+      host: websocket-proxy.voice-terminal.svc.cluster.local
+      subset: canary
+    mirrorPercentage:
+      value: 10.0
+
+---
+# Fault injection for chaos testing
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: websocket-chaos-testing
+  namespace: voice-terminal
+spec:
+  hosts:
+  - websocket-proxy.voice-terminal.svc.cluster.local
+  http:
+  - match:
+    - headers:
+        x-chaos-test:
+          exact: "fault-injection"
+    fault:
+      delay:
+        percentage:
+          value: 1.0
+        fixedDelay: 500ms
+      abort:
+        percentage:
+          value: 0.1
+        httpStatus: 500
+    route:
+    - destination:
+        host: websocket-proxy.voice-terminal.svc.cluster.local
+
+---
+# Service Monitor for Prometheus scraping
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: istio-proxy-monitor
+  namespace: voice-terminal
+  labels:
+    app: istio-proxy
+spec:
+  selector:
+    matchLabels:
+      app: websocket-proxy
+  endpoints:
+  - port: http-monitoring
+    interval: 15s
+    path: /stats/prometheus
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_name]
+      targetLabel: pod_name
+    - sourceLabels: [__meta_kubernetes_namespace]
+      targetLabel: namespace
+
+---
+# Istio networking resources cleanup job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: istio-cleanup
+  namespace: voice-terminal
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: cleanup
+        image: istio/pilot:1.19.0
+        command:
+        - /bin/sh
+        - -c
+        - |
+          # Clean up orphaned Envoy configurations
+          istioctl proxy-config cluster websocket-proxy-0 --fqdn
+          
+          # Validate service mesh configuration
+          istioctl analyze -n voice-terminal
+          
+          # Check proxy status
+          istioctl proxy-status
+          
+          echo "Istio service mesh validation complete"

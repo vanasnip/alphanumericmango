@@ -1,0 +1,406 @@
+# Advanced Horizontal Pod Autoscaler Configuration
+# Multi-metric scaling for WebSocket proxy and tmux backend
+# Target: 1000+ concurrent connections per instance with predictive scaling
+# Metrics: WebSocket connections, CPU, memory, session creation rate
+
+apiVersion: v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: websocket-proxy-hpa
+  namespace: voice-terminal
+  labels:
+    app: websocket-proxy
+    scaling-tier: frontend
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: websocket-proxy
+  minReplicas: 3
+  maxReplicas: 50
+  metrics:
+  # Primary metric: WebSocket connection count (target 80% of 1000 capacity)
+  - type: Pods
+    pods:
+      metric:
+        name: websocket_active_connections
+      target:
+        type: AverageValue
+        averageValue: "800"
+  # Secondary metric: CPU utilization
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  # Memory utilization for connection state
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 75
+  # Custom metric: New connection rate (predictive scaling)
+  - type: Pods
+    pods:
+      metric:
+        name: websocket_connections_per_second
+      target:
+        type: AverageValue
+        averageValue: "50"
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 60
+      - type: Pods
+        value: 5
+        periodSeconds: 60
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+      - type: Pods
+        value: 2
+        periodSeconds: 120
+      selectPolicy: Min
+
+---
+apiVersion: v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: tmux-backend-hpa
+  namespace: voice-terminal
+  labels:
+    app: tmux-backend
+    scaling-tier: backend
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: tmux-backend
+  minReplicas: 2
+  maxReplicas: 20
+  metrics:
+  # Primary metric: Active tmux sessions per backend
+  - type: Pods
+    pods:
+      metric:
+        name: tmux_active_sessions
+      target:
+        type: AverageValue
+        averageValue: "100"
+  # CPU utilization from tmux processes
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 75
+  # Memory for session data and buffers
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  # Session creation rate for predictive scaling
+  - type: Pods
+    pods:
+      metric:
+        name: tmux_sessions_created_per_minute
+      target:
+        type: AverageValue
+        averageValue: "20"
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 120
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 120
+      - type: Pods
+        value: 3
+        periodSeconds: 120
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 600
+      policies:
+      - type: Percent
+        value: 25
+        periodSeconds: 180
+      - type: Pods
+        value: 1
+        periodSeconds: 300
+      selectPolicy: Min
+
+---
+# Vertical Pod Autoscaler for resource optimization
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: websocket-proxy-vpa
+  namespace: voice-terminal
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: websocket-proxy
+  updatePolicy:
+    updateMode: "Auto"
+  resourcePolicy:
+    containerPolicies:
+    - containerName: websocket-proxy
+      maxAllowed:
+        cpu: "2"
+        memory: "4Gi"
+      minAllowed:
+        cpu: "100m"
+        memory: "256Mi"
+      controlledResources: ["cpu", "memory"]
+
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: tmux-backend-vpa
+  namespace: voice-terminal
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: tmux-backend
+  updatePolicy:
+    updateMode: "Auto"
+  resourcePolicy:
+    containerPolicies:
+    - containerName: tmux-backend
+      maxAllowed:
+        cpu: "4"
+        memory: "8Gi"
+      minAllowed:
+        cpu: "200m"
+        memory: "512Mi"
+      controlledResources: ["cpu", "memory"]
+
+---
+# Custom Metrics API Configuration for scaling metrics
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: custom-metrics-config
+  namespace: voice-terminal
+data:
+  metrics.yaml: |
+    # WebSocket Proxy Custom Metrics
+    websocket_metrics:
+      - name: websocket_active_connections
+        description: "Number of active WebSocket connections per pod"
+        query: 'websocket_active_connections{namespace="voice-terminal",pod=~"websocket-proxy-.*"}'
+        
+      - name: websocket_connections_per_second
+        description: "Rate of new WebSocket connections per second"
+        query: 'rate(websocket_connections_total{namespace="voice-terminal",pod=~"websocket-proxy-.*"}[1m])'
+        
+      - name: websocket_message_throughput
+        description: "WebSocket messages per second per pod"
+        query: 'rate(websocket_messages_total{namespace="voice-terminal",pod=~"websocket-proxy-.*"}[1m])'
+    
+    # Tmux Backend Custom Metrics
+    tmux_metrics:
+      - name: tmux_active_sessions
+        description: "Number of active tmux sessions per backend pod"
+        query: 'tmux_sessions_active{namespace="voice-terminal",pod=~"tmux-backend-.*"}'
+        
+      - name: tmux_sessions_created_per_minute
+        description: "Rate of new tmux session creation"
+        query: 'rate(tmux_sessions_created_total{namespace="voice-terminal",pod=~"tmux-backend-.*"}[1m]) * 60'
+        
+      - name: tmux_cpu_per_session
+        description: "Average CPU usage per tmux session"
+        query: 'tmux_cpu_usage{namespace="voice-terminal",pod=~"tmux-backend-.*"} / tmux_sessions_active{namespace="voice-terminal",pod=~"tmux-backend-.*"}'
+
+---
+# Predictive Scaling Controller Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: predictive-scaling-config
+  namespace: voice-terminal
+data:
+  config.yaml: |
+    # Predictive scaling configuration
+    predictive_scaling:
+      websocket_proxy:
+        enabled: true
+        lookback_window: "1h"
+        prediction_window: "5m"
+        scale_up_threshold: 0.85
+        scale_down_threshold: 0.3
+        max_scale_up_pods: 10
+        max_scale_down_pods: 5
+        
+        # Historical patterns for different times
+        patterns:
+          - name: "business_hours"
+            time_range: "09:00-17:00"
+            timezone: "UTC"
+            multiplier: 1.5
+            
+          - name: "peak_hours"
+            time_range: "12:00-14:00"
+            timezone: "UTC"
+            multiplier: 2.0
+            
+          - name: "low_activity"
+            time_range: "22:00-06:00"
+            timezone: "UTC"
+            multiplier: 0.5
+      
+      tmux_backend:
+        enabled: true
+        lookback_window: "2h"
+        prediction_window: "10m"
+        scale_up_threshold: 0.8
+        scale_down_threshold: 0.2
+        max_scale_up_pods: 5
+        max_scale_down_pods: 2
+
+---
+# Pod Disruption Budget for high availability during scaling
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: websocket-proxy-pdb
+  namespace: voice-terminal
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: websocket-proxy
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: tmux-backend-pdb
+  namespace: voice-terminal
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: tmux-backend
+
+---
+# KEDA ScaledObject for event-driven autoscaling
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: websocket-proxy-keda
+  namespace: voice-terminal
+spec:
+  scaleTargetRef:
+    name: websocket-proxy
+  pollingInterval: 15
+  cooldownPeriod: 60
+  minReplicaCount: 3
+  maxReplicaCount: 50
+  triggers:
+  # Redis-based session count scaling
+  - type: redis
+    metadata:
+      address: "redis-cluster.voice-terminal.svc.cluster.local:6379"
+      password: "voice-terminal-redis-2024"
+      query: "EVAL \"return redis.call('GET', 'websocket:active_connections')\" 0"
+      queryType: "script"
+      targetType: AverageValue
+    authenticationRef:
+      name: redis-auth-trigger
+  # Prometheus-based connection rate scaling
+  - type: prometheus
+    metadata:
+      serverAddress: "http://prometheus.monitoring.svc.cluster.local:9090"
+      metricName: "websocket_connection_rate"
+      query: "rate(websocket_connections_total[1m])"
+      threshold: "50"
+
+---
+# Circuit Breaker for cascade failure prevention
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: circuit-breaker-config
+  namespace: voice-terminal
+data:
+  circuit-breaker.yaml: |
+    # Circuit breaker configuration for scaling protection
+    circuit_breakers:
+      scaling_protection:
+        failure_threshold: 5
+        recovery_timeout: 300s
+        half_open_max_calls: 3
+        
+        # Conditions that trigger circuit breaker
+        triggers:
+          - metric: "pod_startup_failures"
+            threshold: 3
+            window: "5m"
+            
+          - metric: "oom_kills"
+            threshold: 2
+            window: "10m"
+            
+          - metric: "connection_errors"
+            threshold: 100
+            window: "1m"
+        
+        # Actions when circuit breaker opens
+        actions:
+          - type: "pause_scaling"
+            duration: "10m"
+            
+          - type: "alert"
+            severity: "critical"
+            message: "Scaling circuit breaker activated - investigate resource issues"
+            
+          - type: "fallback"
+            strategy: "maintain_current_replicas"
+
+---
+# Resource quotas for scaling boundaries
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: voice-terminal-scaling-quota
+  namespace: voice-terminal
+spec:
+  hard:
+    # Compute resources
+    requests.cpu: "50"
+    requests.memory: "100Gi"
+    limits.cpu: "100"
+    limits.memory: "200Gi"
+    
+    # Pod limits for scaling
+    pods: "100"
+    replicationcontrollers: "20"
+    
+    # Storage for session persistence
+    persistentvolumeclaims: "20"
+    requests.storage: "500Gi"
+
+---
+# Priority Class for critical scaling components
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: voice-terminal-high-priority
+value: 1000
+globalDefault: false
+description: "High priority for voice terminal scaling components"

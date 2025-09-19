@@ -11,14 +11,14 @@
   "scripts": {
     "install:all": "npm install && npm run install:workspaces",
     "install:workspaces": "npm install --workspaces",
-    "build": "npm run build --workspaces",
-    "test": "npm run test --workspaces",
-    "test:staged": "npm run test:staged --workspaces --if-present",
-    "lint": "npm run lint --workspaces --if-present",
-    "lint:staged": "npm run lint:staged --workspaces --if-present",
+    "build": "npm --workspaces --if-present run build",
+    "test": "npm --workspaces --if-present run test",
+    "test:staged": "npm --workspaces --if-present run test:staged",
+    "lint": "npm --workspaces --if-present run lint",
+    "lint:staged": "npm --workspaces --if-present run lint:staged",
     "format": "prettier --write \"**/*.{js,ts,tsx,svelte,css,md,json}\"",
     "format:check": "prettier --check \"**/*.{js,ts,tsx,svelte,css,md,json}\"",
-    "type-check": "npm run type-check --workspaces --if-present",
+    "type-check": "npm --workspaces --if-present run type-check",
     "prepare": "husky install",
     "ci:local": "./scripts/pre-push-ci.sh",
     "ci:act": "act",
@@ -72,19 +72,6 @@
     "lint-staged": "^15.2.0",
     "prettier": "^3.1.1",
     "concurrently": "^8.2.2"
-  },
-  "lint-staged": {
-    "**/*.{js,ts,tsx}": [
-      "npm run lint:staged",
-      "npm run test:staged"
-    ],
-    "**/*.{svelte}": [
-      "npm run lint:staged:svelte",
-      "npm run test:staged"
-    ],
-    "**/*.{js,ts,tsx,svelte,css,md,json}": [
-      "prettier --write"
-    ]
   },
   "engines": {
     "node": ">=18.0.0",

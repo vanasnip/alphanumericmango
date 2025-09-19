@@ -1,0 +1,715 @@
+# Comprehensive Monitoring and Alerting for Tmux Service
+# Security, Performance, and Backend Health Monitoring
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluentbit-config
+  namespace: voice-terminal
+  labels:
+    app.kubernetes.io/name: tmux-service
+    app.kubernetes.io/component: logging
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush         5
+        Log_Level     info
+        Daemon        off
+        Parsers_File  parsers.conf
+        HTTP_Server   On
+        HTTP_Listen   0.0.0.0
+        HTTP_Port     2020
+
+    [INPUT]
+        Name              tail
+        Path              /var/log/audit/*.log
+        Parser            audit_parser
+        Tag               audit.*
+        Refresh_Interval  5
+        Mem_Buf_Limit     5MB
+
+    [INPUT]
+        Name              tail
+        Path              /var/log/tmux/*.log
+        Parser            tmux_parser
+        Tag               tmux.*
+        Refresh_Interval  5
+        Mem_Buf_Limit     5MB
+
+    [FILTER]
+        Name    parser
+        Match   audit.*
+        Key_Name log
+        Parser  audit_json
+        Reserve_Data On
+
+    [FILTER]
+        Name    lua
+        Match   audit.*
+        Script  security_enrichment.lua
+        Call    enrich_security_event
+
+    [OUTPUT]
+        Name  elasticsearch
+        Match audit.*
+        Host  elasticsearch.monitoring.svc.cluster.local
+        Port  9200
+        Index security-logs
+        Type  _doc
+
+    [OUTPUT]
+        Name  forward
+        Match tmux.*
+        Host  fluentd.monitoring.svc.cluster.local
+        Port  24224
+
+  parsers.conf: |
+    [PARSER]
+        Name        audit_parser
+        Format      regex
+        Regex       ^\[(?<timestamp>[^\]]+)\]\[(?<level>[^\]]+)\] (?<message>.*)$
+        Time_Key    timestamp
+        Time_Format %Y-%m-%dT%H:%M:%S.%L
+
+    [PARSER]
+        Name        audit_json
+        Format      json
+        Time_Key    timestamp
+        Time_Format %Y-%m-%dT%H:%M:%S.%L
+
+    [PARSER]
+        Name        tmux_parser
+        Format      regex
+        Regex       ^(?<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) (?<session>[^\s]+) (?<command>.*)$
+        Time_Key    timestamp
+        Time_Format %Y-%m-%d %H:%M:%S
+
+  security_enrichment.lua: |
+    function enrich_security_event(tag, timestamp, record)
+        -- Add security context
+        if record.eventType then
+            if string.find(record.eventType, "injection") then
+                record.threat_level = "critical"
+                record.alert_priority = "immediate"
+            elseif string.find(record.eventType, "rate_limit") then
+                record.threat_level = "high"
+                record.alert_priority = "urgent"
+            else
+                record.threat_level = "medium"
+                record.alert_priority = "normal"
+            end
+        end
+        
+        -- Add geolocation for IP addresses
+        if record.clientInfo and record.clientInfo.ipAddress then
+            record.geo_enriched = true
+        end
+        
+        return 1, timestamp, record
+    end
+
+---
+# Prometheus AlertManager Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: alertmanager
+    app.kubernetes.io/component: config
+data:
+  alertmanager.yml: |
+    global:
+      smtp_smarthost: 'smtp.company.com:587'
+      smtp_from: 'alerts@voice-terminal.io'
+      
+    route:
+      group_by: ['alertname', 'severity']
+      group_wait: 10s
+      group_interval: 10s
+      repeat_interval: 12h
+      receiver: 'default'
+      routes:
+      - match:
+          severity: critical
+        receiver: 'critical-alerts'
+        continue: true
+      - match:
+          service: tmux-service
+        receiver: 'tmux-team'
+        continue: true
+      - match:
+          alert_type: security
+        receiver: 'security-team'
+        continue: true
+
+    receivers:
+    - name: 'default'
+      slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#alerts'
+        title: 'Voice Terminal Alert'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+
+    - name: 'critical-alerts'
+      slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/CRITICAL/WEBHOOK'
+        channel: '#critical-alerts'
+        title: 'CRITICAL: Voice Terminal Alert'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+      pagerduty_configs:
+      - service_key: 'your-pagerduty-service-key'
+        description: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+
+    - name: 'tmux-team'
+      slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/TMUX/WEBHOOK'
+        channel: '#tmux-alerts'
+        title: 'Tmux Service Alert'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+
+    - name: 'security-team'
+      slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SECURITY/WEBHOOK'
+        channel: '#security-alerts'
+        title: 'SECURITY ALERT: Voice Terminal'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+      email_configs:
+      - to: 'security@voice-terminal.io'
+        subject: 'SECURITY ALERT: {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Time: {{ .StartsAt }}
+          {{ end }}
+
+---
+# Prometheus Rules for Tmux Service
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: tmux-service-rules
+  namespace: voice-terminal
+  labels:
+    app.kubernetes.io/name: tmux-service
+    app.kubernetes.io/component: monitoring
+    prometheus: kube-prometheus
+    role: alert-rules
+spec:
+  groups:
+  - name: tmux-service.performance
+    interval: 30s
+    rules:
+    # Performance Metrics
+    - alert: TmuxServiceHighLatency
+      expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{service="tmux-service"}[5m])) by (le)) > 0.015
+      for: 2m
+      labels:
+        severity: warning
+        service: tmux-service
+        alert_type: performance
+      annotations:
+        summary: "Tmux service experiencing high latency"
+        description: "95th percentile latency is {{ $value }}s, above 15ms threshold"
+        runbook_url: "https://runbooks.voice-terminal.io/tmux-latency"
+
+    - alert: TmuxServiceErrorRate
+      expr: sum(rate(http_requests_total{service="tmux-service",status=~"5.."}[5m])) / sum(rate(http_requests_total{service="tmux-service"}[5m])) > 0.05
+      for: 1m
+      labels:
+        severity: critical
+        service: tmux-service
+        alert_type: performance
+      annotations:
+        summary: "Tmux service error rate too high"
+        description: "Error rate is {{ $value | humanizePercentage }}, above 5% threshold"
+        runbook_url: "https://runbooks.voice-terminal.io/tmux-errors"
+
+    - alert: TmuxCacheHitRateLow
+      expr: sum(rate(cache_hits_total{service="tmux-service"}[5m])) / sum(rate(cache_requests_total{service="tmux-service"}[5m])) < 0.95
+      for: 5m
+      labels:
+        severity: warning
+        service: tmux-service
+        alert_type: performance
+      annotations:
+        summary: "Tmux service cache hit rate below target"
+        description: "Cache hit rate is {{ $value | humanizePercentage }}, below 95% target"
+        runbook_url: "https://runbooks.voice-terminal.io/tmux-cache"
+
+    # Resource Utilization
+    - alert: TmuxServiceHighMemoryUsage
+      expr: container_memory_usage_bytes{container="tmux-service"} / container_spec_memory_limit_bytes{container="tmux-service"} > 0.85
+      for: 5m
+      labels:
+        severity: warning
+        service: tmux-service
+        alert_type: resource
+      annotations:
+        summary: "Tmux service memory usage high"
+        description: "Memory usage is {{ $value | humanizePercentage }} of limit"
+        runbook_url: "https://runbooks.voice-terminal.io/tmux-memory"
+
+    - alert: TmuxServiceHighCPUUsage
+      expr: rate(container_cpu_usage_seconds_total{container="tmux-service"}[5m]) > 0.8
+      for: 5m
+      labels:
+        severity: warning
+        service: tmux-service
+        alert_type: resource
+      annotations:
+        summary: "Tmux service CPU usage high"
+        description: "CPU usage is {{ $value | humanizePercentage }}"
+        runbook_url: "https://runbooks.voice-terminal.io/tmux-cpu"
+
+  - name: tmux-service.security
+    interval: 15s
+    rules:
+    # Security Metrics
+    - alert: TmuxInjectionAttempts
+      expr: increase(security_events_total{event_type="injection_attempt"}[1m]) > 0
+      for: 0s
+      labels:
+        severity: critical
+        service: tmux-service
+        alert_type: security
+      annotations:
+        summary: "Command injection attempts detected in tmux service"
+        description: "{{ $value }} injection attempts in the last minute"
+        runbook_url: "https://runbooks.voice-terminal.io/security-injection"
+
+    - alert: TmuxRateLimitViolations
+      expr: increase(security_events_total{event_type="rate_limit_exceeded"}[5m]) > 10
+      for: 1m
+      labels:
+        severity: high
+        service: tmux-service
+        alert_type: security
+      annotations:
+        summary: "High number of rate limit violations"
+        description: "{{ $value }} rate limit violations in 5 minutes, possible DoS attack"
+        runbook_url: "https://runbooks.voice-terminal.io/security-ratelimit"
+
+    - alert: TmuxSuspiciousActivity
+      expr: increase(security_events_total{event_type="suspicious_activity"}[10m]) > 5
+      for: 2m
+      labels:
+        severity: high
+        service: tmux-service
+        alert_type: security
+      annotations:
+        summary: "Suspicious activity pattern detected"
+        description: "{{ $value }} suspicious events in 10 minutes"
+        runbook_url: "https://runbooks.voice-terminal.io/security-suspicious"
+
+    - alert: TmuxAuditLogFailure
+      expr: increase(security_events_total{event_type="audit_log_tamper"}[1m]) > 0
+      for: 0s
+      labels:
+        severity: critical
+        service: tmux-service
+        alert_type: security
+      annotations:
+        summary: "Audit log tampering detected"
+        description: "Audit log write failure - possible tampering attempt"
+        runbook_url: "https://runbooks.voice-terminal.io/security-audit"
+
+  - name: tmux-service.backend
+    interval: 30s
+    rules:
+    # Backend Health
+    - alert: TmuxConnectionPoolExhausted
+      expr: tmux_active_connections / tmux_max_connections > 0.9
+      for: 2m
+      labels:
+        severity: warning
+        service: tmux-service
+        alert_type: backend
+      annotations:
+        summary: "Tmux connection pool near capacity"
+        description: "{{ $value | humanizePercentage }} of connection pool in use"
+        runbook_url: "https://runbooks.voice-terminal.io/tmux-connections"
+
+    - alert: TmuxUnhealthyConnections
+      expr: (tmux_active_connections - tmux_healthy_connections) / tmux_active_connections > 0.2
+      for: 1m
+      labels:
+        severity: critical
+        service: tmux-service
+        alert_type: backend
+      annotations:
+        summary: "High number of unhealthy tmux connections"
+        description: "{{ $value | humanizePercentage }} of connections are unhealthy"
+        runbook_url: "https://runbooks.voice-terminal.io/tmux-health"
+
+    - alert: TmuxSessionOverload
+      expr: tmux_active_sessions > 80
+      for: 5m
+      labels:
+        severity: warning
+        service: tmux-service
+        alert_type: backend
+      annotations:
+        summary: "High number of active tmux sessions"
+        description: "{{ $value }} active sessions, approaching limit of 100"
+        runbook_url: "https://runbooks.voice-terminal.io/tmux-sessions"
+
+  - name: tmux-service.business
+    interval: 60s
+    rules:
+    # Business Metrics
+    - alert: TmuxSessionCreationRate
+      expr: rate(tmux_sessions_created_total[5m]) < 0.1
+      for: 10m
+      labels:
+        severity: warning
+        service: tmux-service
+        alert_type: business
+      annotations:
+        summary: "Low tmux session creation rate"
+        description: "Session creation rate is {{ $value }}/sec, below expected"
+        runbook_url: "https://runbooks.voice-terminal.io/tmux-usage"
+
+    - alert: TmuxUserConcurrency
+      expr: tmux_concurrent_users > 500
+      for: 5m
+      labels:
+        severity: info
+        service: tmux-service
+        alert_type: business
+      annotations:
+        summary: "High user concurrency on tmux service"
+        description: "{{ $value }} concurrent users, monitor for scaling needs"
+        runbook_url: "https://runbooks.voice-terminal.io/tmux-scaling"
+
+---
+# Grafana Dashboard ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tmux-dashboard
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/component: dashboard
+    grafana_dashboard: "1"
+data:
+  tmux-service-dashboard.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "Tmux Service - Production Monitoring",
+        "tags": ["tmux", "voice-terminal", "security", "performance"],
+        "timezone": "browser",
+        "panels": [
+          {
+            "id": 1,
+            "title": "Security Events Overview",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "sum(increase(security_events_total[24h]))",
+                "legendFormat": "Total Events"
+              },
+              {
+                "expr": "sum(increase(security_events_total{severity=\"critical\"}[24h]))",
+                "legendFormat": "Critical Events"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+            "options": {
+              "colorMode": "background",
+              "graphMode": "area",
+              "orientation": "auto"
+            }
+          },
+          {
+            "id": 2,
+            "title": "Performance Metrics",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
+                "legendFormat": "95th percentile latency"
+              },
+              {
+                "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
+                "legendFormat": "50th percentile latency"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+            "yAxes": [
+              {
+                "label": "Seconds",
+                "max": 0.1,
+                "min": 0
+              }
+            ]
+          },
+          {
+            "id": 3,
+            "title": "Connection Pool Status",
+            "type": "gauge",
+            "targets": [
+              {
+                "expr": "tmux_active_connections / tmux_max_connections * 100",
+                "legendFormat": "Pool Utilization %"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 6, "x": 0, "y": 8},
+            "options": {
+              "minValue": 0,
+              "maxValue": 100,
+              "thresholds": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 90}
+              ]
+            }
+          },
+          {
+            "id": 4,
+            "title": "Cache Hit Rate",
+            "type": "gauge",
+            "targets": [
+              {
+                "expr": "sum(rate(cache_hits_total[5m])) / sum(rate(cache_requests_total[5m])) * 100",
+                "legendFormat": "Cache Hit Rate %"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 6, "x": 6, "y": 8},
+            "options": {
+              "minValue": 0,
+              "maxValue": 100,
+              "thresholds": [
+                {"color": "red", "value": 0},
+                {"color": "yellow", "value": 90},
+                {"color": "green", "value": 95}
+              ]
+            }
+          },
+          {
+            "id": 5,
+            "title": "Error Rate",
+            "type": "singlestat",
+            "targets": [
+              {
+                "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m])) * 100",
+                "legendFormat": "Error Rate %"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 6, "x": 12, "y": 8},
+            "valueMaps": [
+              {"value": "null", "text": "0%"}
+            ],
+            "thresholds": "1,5"
+          },
+          {
+            "id": 6,
+            "title": "Resource Utilization",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(container_cpu_usage_seconds_total{container=\"tmux-service\"}[5m]) * 100",
+                "legendFormat": "CPU %"
+              },
+              {
+                "expr": "container_memory_usage_bytes{container=\"tmux-service\"} / 1024 / 1024",
+                "legendFormat": "Memory MB"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 6, "x": 18, "y": 8},
+            "yAxes": [
+              {
+                "label": "Percent / MB",
+                "min": 0
+              }
+            ]
+          },
+          {
+            "id": 7,
+            "title": "Security Events Timeline",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "sum by (event_type) (increase(security_events_total[1m]))",
+                "legendFormat": "{{event_type}}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16},
+            "legend": {
+              "show": true,
+              "table": true,
+              "values": true,
+              "current": true,
+              "max": true
+            }
+          },
+          {
+            "id": 8,
+            "title": "Active Sessions by Type",
+            "type": "piechart",
+            "targets": [
+              {
+                "expr": "sum by (session_type) (tmux_sessions_by_type)",
+                "legendFormat": "{{session_type}}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24}
+          },
+          {
+            "id": 9,
+            "title": "Request Rate",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "sum(rate(http_requests_total[5m]))",
+                "legendFormat": "Requests/sec"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+            "yAxes": [
+              {
+                "label": "Requests/sec",
+                "min": 0
+              }
+            ]
+          }
+        ],
+        "time": {
+          "from": "now-1h",
+          "to": "now"
+        },
+        "refresh": "30s",
+        "schemaVersion": 16,
+        "version": 1
+      }
+    }
+
+---
+# ElasticSearch Template for Security Logs
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: elasticsearch-security-template
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: elasticsearch
+    app.kubernetes.io/component: template
+data:
+  security-logs-template.json: |
+    {
+      "index_patterns": ["security-logs-*"],
+      "template": {
+        "settings": {
+          "number_of_shards": 1,
+          "number_of_replicas": 1,
+          "index.lifecycle.name": "security-logs-policy",
+          "index.lifecycle.rollover_alias": "security-logs"
+        },
+        "mappings": {
+          "properties": {
+            "@timestamp": {
+              "type": "date"
+            },
+            "eventType": {
+              "type": "keyword"
+            },
+            "severity": {
+              "type": "keyword"
+            },
+            "source": {
+              "type": "keyword"
+            },
+            "description": {
+              "type": "text",
+              "analyzer": "standard"
+            },
+            "outcome": {
+              "type": "keyword"
+            },
+            "riskScore": {
+              "type": "integer"
+            },
+            "clientInfo": {
+              "properties": {
+                "sessionId": {"type": "keyword"},
+                "userId": {"type": "keyword"},
+                "ipAddress": {"type": "ip"},
+                "userAgent": {"type": "text"},
+                "processId": {"type": "integer"}
+              }
+            },
+            "metadata": {
+              "type": "object",
+              "dynamic": true
+            },
+            "threat_level": {
+              "type": "keyword"
+            },
+            "alert_priority": {
+              "type": "keyword"
+            },
+            "geo_enriched": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    }
+
+---
+# Jaeger Tracing Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jaeger-config
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: jaeger
+    app.kubernetes.io/component: config
+data:
+  jaeger.yaml: |
+    extensions:
+      health_check:
+      pprof:
+      zpages:
+
+    receivers:
+      jaeger:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:14250
+          thrift_http:
+            endpoint: 0.0.0.0:14268
+          thrift_compact:
+            endpoint: 0.0.0.0:6831
+
+    processors:
+      batch:
+        timeout: 1s
+        send_batch_size: 50
+      memory_limiter:
+        limit_mib: 512
+      resource:
+        attributes:
+        - key: service.name
+          value: tmux-service
+          action: upsert
+
+    exporters:
+      elasticsearch:
+        endpoints: [http://elasticsearch.monitoring.svc.cluster.local:9200]
+        index: jaeger-spans
+        pipeline: trace-pipeline
+
+    service:
+      extensions: [health_check, pprof, zpages]
+      pipelines:
+        traces:
+          receivers: [jaeger]
+          processors: [memory_limiter, resource, batch]
+          exporters: [elasticsearch]

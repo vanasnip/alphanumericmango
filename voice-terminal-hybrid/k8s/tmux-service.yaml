@@ -1,0 +1,658 @@
+# Production Kubernetes Deployment for Tmux Service
+# Security-hardened deployment with comprehensive monitoring and service mesh preparation
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: voice-terminal
+  labels:
+    app.kubernetes.io/name: voice-terminal
+    app.kubernetes.io/component: tmux-service
+    security-scan: "enabled"
+  annotations:
+    vault.security.banzaicloud.io/vault-addr: "https://vault.internal:8200"
+    vault.security.banzaicloud.io/vault-role: "tmux-service"
+
+---
+# ConfigMap for tmux service configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tmux-service-config
+  namespace: voice-terminal
+  labels:
+    app.kubernetes.io/name: tmux-service
+    app.kubernetes.io/component: config
+data:
+  tmux.conf: |
+    # Security-hardened tmux configuration
+    set-option -g default-shell "/bin/bash"
+    set-option -g history-limit 10000
+    set-option -g escape-time 0
+    set-option -g status-interval 5
+    set-option -g automatic-rename on
+    set-option -g renumber-windows on
+    
+    # Security settings
+    set-option -g lock-after-time 1800
+    set-option -g lock-command "vlock"
+    set-option -g visual-activity on
+    set-option -g monitor-activity on
+    
+    # Logging and audit
+    set-option -g history-file "/var/log/tmux/command-history.log"
+  
+  app-config.yaml: |
+    server:
+      port: 8080
+      host: "0.0.0.0"
+      readTimeout: 30s
+      writeTimeout: 30s
+      idleTimeout: 120s
+    
+    security:
+      enableAuditLogging: true
+      auditLogPath: "/var/log/audit/tmux-audit.log"
+      maxLogSize: 104857600  # 100MB
+      logRotationCount: 10
+      encryptLogs: true
+      rateLimitRPS: 100
+      rateLimitBurst: 200
+      sessionTimeout: 3600
+    
+    performance:
+      connectionPoolSize: 10
+      connectionPoolMinSize: 3
+      commandTimeout: 5s
+      healthCheckInterval: 10s
+      cacheSize: 1000
+      cacheTTL: 300s
+    
+    monitoring:
+      enableMetrics: true
+      metricsPort: 9090
+      metricsPath: "/metrics"
+      healthCheckPath: "/health"
+      readinessPath: "/ready"
+      enableProfiling: false
+    
+    tmux:
+      socketPath: "/tmp/tmux-socket"
+      sessionPrefix: "vt"
+      maxSessions: 100
+      defaultShell: "/bin/bash"
+      enableControlMode: true
+
+---
+# Secret for sensitive configuration
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tmux-service-secrets
+  namespace: voice-terminal
+  labels:
+    app.kubernetes.io/name: tmux-service
+    app.kubernetes.io/component: secrets
+  annotations:
+    vault.security.banzaicloud.io/vault-addr: "https://vault.internal:8200"
+    vault.security.banzaicloud.io/vault-path: "secret/tmux-service"
+type: Opaque
+data:
+  # These will be injected by Vault operator
+  audit-signing-key: ""
+  encryption-key: ""
+  jwt-secret: ""
+
+---
+# ServiceAccount with minimal RBAC
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tmux-service
+  namespace: voice-terminal
+  labels:
+    app.kubernetes.io/name: tmux-service
+    app.kubernetes.io/component: serviceaccount
+automountServiceAccountToken: true
+
+---
+# Role with minimal required permissions
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: tmux-service
+  namespace: voice-terminal
+  labels:
+    app.kubernetes.io/name: tmux-service
+    app.kubernetes.io/component: rbac
+rules:
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+  resourceNames: ["tmux-service-*"]
+
+---
+# RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tmux-service
+  namespace: voice-terminal
+  labels:
+    app.kubernetes.io/name: tmux-service
+    app.kubernetes.io/component: rbac
+subjects:
+- kind: ServiceAccount
+  name: tmux-service
+  namespace: voice-terminal
+roleRef:
+  kind: Role
+  name: tmux-service
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tmux-service
+  namespace: voice-terminal
+  labels:
+    app.kubernetes.io/name: tmux-service
+    app.kubernetes.io/component: server
+    app.kubernetes.io/version: "1.0.0"
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+    prometheus.io/path: "/metrics"
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tmux-service
+      app.kubernetes.io/component: server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: tmux-service
+        app.kubernetes.io/component: server
+        app.kubernetes.io/version: "1.0.0"
+        sidecar.istio.io/inject: "true"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+        vault.security.banzaicloud.io/vault-addr: "https://vault.internal:8200"
+        vault.security.banzaicloud.io/vault-role: "tmux-service"
+        vault.security.banzaicloud.io/vault-path: "secret/tmux-service"
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
+    spec:
+      serviceAccountName: tmux-service
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: tmux-service
+        image: voice-terminal/tmux-service:1.0.0
+        imagePullPolicy: Always
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 10001
+          runAsGroup: 10001
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        - name: metrics
+          containerPort: 9090
+          protocol: TCP
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: CONFIG_PATH
+          value: "/etc/config/app-config.yaml"
+        - name: TMUX_CONF_PATH
+          value: "/etc/tmux/tmux.conf"
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: ENVIRONMENT
+          value: "production"
+        volumeMounts:
+        - name: config
+          mountPath: /etc/config
+          readOnly: true
+        - name: tmux-config
+          mountPath: /etc/tmux
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+        - name: var-log
+          mountPath: /var/log
+        - name: var-run
+          mountPath: /var/run
+        - name: secrets
+          mountPath: /etc/secrets
+          readOnly: true
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+            ephemeral-storage: "1Gi"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+            ephemeral-storage: "2Gi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 10
+      # Sidecar container for log shipping
+      - name: fluentbit
+        image: fluent/fluent-bit:2.2.0
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 10001
+          runAsGroup: 10001
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: var-log
+          mountPath: /var/log
+          readOnly: true
+        - name: fluentbit-config
+          mountPath: /fluent-bit/etc
+          readOnly: true
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+      volumes:
+      - name: config
+        configMap:
+          name: tmux-service-config
+          items:
+          - key: app-config.yaml
+            path: app-config.yaml
+      - name: tmux-config
+        configMap:
+          name: tmux-service-config
+          items:
+          - key: tmux.conf
+            path: tmux.conf
+      - name: secrets
+        secret:
+          secretName: tmux-service-secrets
+          defaultMode: 0400
+      - name: tmp
+        emptyDir:
+          sizeLimit: "1Gi"
+      - name: var-log
+        emptyDir:
+          sizeLimit: "2Gi"
+      - name: var-run
+        emptyDir:
+          sizeLimit: "100Mi"
+      - name: fluentbit-config
+        configMap:
+          name: fluentbit-config
+      nodeSelector:
+        kubernetes.io/arch: amd64
+        node.kubernetes.io/instance-type: "m5.large"
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                  - tmux-service
+              topologyKey: kubernetes.io/hostname
+      tolerations:
+      - effect: NoSchedule
+        key: voice-terminal
+        operator: Equal
+        value: "true"
+      terminationGracePeriodSeconds: 30
+
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: tmux-service
+  namespace: voice-terminal
+  labels:
+    app.kubernetes.io/name: tmux-service
+    app.kubernetes.io/component: service
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+    prometheus.io/path: "/metrics"
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: tmux-service
+    app.kubernetes.io/component: server
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+    protocol: TCP
+  - name: metrics
+    port: 9090
+    targetPort: metrics
+    protocol: TCP
+
+---
+# Horizontal Pod Autoscaler
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: tmux-service-hpa
+  namespace: voice-terminal
+  labels:
+    app.kubernetes.io/name: tmux-service
+    app.kubernetes.io/component: autoscaler
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: tmux-service
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  - type: Pods
+    pods:
+      metric:
+        name: tmux_active_sessions
+      target:
+        type: AverageValue
+        averageValue: "50"
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 60
+      - type: Pods
+        value: 2
+        periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+
+---
+# Pod Disruption Budget
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: tmux-service-pdb
+  namespace: voice-terminal
+  labels:
+    app.kubernetes.io/name: tmux-service
+    app.kubernetes.io/component: pdb
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tmux-service
+      app.kubernetes.io/component: server
+
+---
+# Network Policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: tmux-service-netpol
+  namespace: voice-terminal
+  labels:
+    app.kubernetes.io/name: tmux-service
+    app.kubernetes.io/component: network-policy
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: tmux-service
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: istio-system
+    - namespaceSelector:
+        matchLabels:
+          name: voice-terminal
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8080
+    - protocol: TCP
+      port: 9090
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: vault-system
+    ports:
+    - protocol: TCP
+      port: 8200
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 9090
+
+---
+# ServiceMonitor for Prometheus
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: tmux-service
+  namespace: voice-terminal
+  labels:
+    app.kubernetes.io/name: tmux-service
+    app.kubernetes.io/component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tmux-service
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+    honorLabels: true
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_name]
+      targetLabel: instance
+    - sourceLabels: [__meta_kubernetes_namespace]
+      targetLabel: kubernetes_namespace
+    - sourceLabels: [__meta_kubernetes_service_name]
+      targetLabel: kubernetes_service_name
+
+---
+# Istio VirtualService for traffic management
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: tmux-service
+  namespace: voice-terminal
+  labels:
+    app.kubernetes.io/name: tmux-service
+    app.kubernetes.io/component: istio
+spec:
+  hosts:
+  - tmux-service
+  - tmux-service.voice-terminal.svc.cluster.local
+  http:
+  - match:
+    - uri:
+        prefix: /health
+    route:
+    - destination:
+        host: tmux-service
+        port:
+          number: 80
+    timeout: 5s
+  - match:
+    - uri:
+        prefix: /metrics
+    route:
+    - destination:
+        host: tmux-service
+        port:
+          number: 9090
+    timeout: 10s
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: tmux-service
+        port:
+          number: 80
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+      retryOn: gateway-error,connect-failure,refused-stream
+    fault:
+      delay:
+        percentage:
+          value: 0.1
+        fixedDelay: 5s
+
+---
+# Istio DestinationRule for circuit breaker
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: tmux-service
+  namespace: voice-terminal
+  labels:
+    app.kubernetes.io/name: tmux-service
+    app.kubernetes.io/component: istio
+spec:
+  host: tmux-service
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+        connectTimeout: 10s
+      http:
+        http1MaxPendingRequests: 64
+        http2MaxRequests: 100
+        maxRequestsPerConnection: 10
+        maxRetries: 3
+        consecutiveGatewayErrors: 5
+        interval: 30s
+        baseEjectionTime: 30s
+        maxEjectionPercent: 50
+    outlierDetection:
+      consecutiveGatewayErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+      minHealthPercent: 30

@@ -1,0 +1,297 @@
+# Artifact Management - Optimized for local execution with act
+#
+# Usage with act (local execution):
+#   Local artifact management:
+#     act workflow_call --input artifact-type=build --input project=voice-terminal-hybrid
+#   
+#   Skip expensive operations:
+#     act workflow_call -j local-artifact-summary
+#
+# Local optimization features:
+#   - Uses local directories instead of GitHub artifacts
+#   - Skips external storage (S3, etc.)
+#   - Simplified artifact organization for development
+
+name: Artifact Management
+
+on:
+  workflow_call:
+    inputs:
+      artifact-type:
+        required: true
+        type: string
+        description: 'Type of artifact (build, test, release)'
+      project:
+        required: true
+        type: string
+        description: 'Project name'
+      retention-days:
+        required: false
+        type: number
+        default: 7
+        description: 'Number of days to retain artifacts'
+
+env:
+  # Detect act execution  
+  ACT_EXECUTION: ${{ github.actor == 'nektos/act' && 'true' || 'false' }}
+
+jobs:
+  manage-artifacts:
+    name: Manage ${{ inputs.artifact-type }} Artifacts
+    runs-on: ubuntu-latest
+    # Skip expensive artifact management in act
+    if: github.actor != 'nektos/act'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup artifact metadata
+        id: metadata
+        run: |
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          SHORT_SHA=${GITHUB_SHA::7}
+          BRANCH_NAME=${GITHUB_REF_NAME//\//-}
+          
+          echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
+          echo "short-sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "artifact-name=${{ inputs.project }}-${{ inputs.artifact-type }}-$BRANCH_NAME-$SHORT_SHA" >> $GITHUB_OUTPUT
+      
+      - name: Download existing artifacts
+        if: inputs.artifact-type == 'build' || inputs.artifact-type == 'test'
+        uses: actions/download-artifact@v3
+        with:
+          path: raw-artifacts/
+      
+      - name: Organize artifacts
+        run: |
+          mkdir -p organized-artifacts/${{ inputs.artifact-type }}
+          
+          case "${{ inputs.artifact-type }}" in
+            "build")
+              if [ "${{ inputs.project }}" == "voice-terminal-hybrid" ]; then
+                cp -r raw-artifacts/build-output/* organized-artifacts/build/ 2>/dev/null || true
+                cp -r raw-artifacts/storybook-static/* organized-artifacts/build/storybook/ 2>/dev/null || true
+              elif [ "${{ inputs.project }}" == "electron-shell" ]; then
+                cp -r raw-artifacts/electron-build-*/* organized-artifacts/build/ 2>/dev/null || true
+                cp -r raw-artifacts/electron-app-*/* organized-artifacts/build/ 2>/dev/null || true
+              fi
+              ;;
+            "test")
+              cp -r raw-artifacts/test-results-*/* organized-artifacts/test/ 2>/dev/null || true
+              cp -r raw-artifacts/playwright-report/* organized-artifacts/test/playwright/ 2>/dev/null || true
+              cp -r raw-artifacts/coverage/* organized-artifacts/test/coverage/ 2>/dev/null || true
+              ;;
+            "release")
+              cp -r raw-artifacts/electron-signed-*/* organized-artifacts/release/ 2>/dev/null || true
+              ;;
+          esac
+      
+      - name: Create artifact manifest
+        run: |
+          cat > organized-artifacts/manifest.json << EOF
+          {
+            "project": "${{ inputs.project }}",
+            "type": "${{ inputs.artifact-type }}",
+            "timestamp": "${{ steps.metadata.outputs.timestamp }}",
+            "commit": "${{ github.sha }}",
+            "branch": "${{ github.ref_name }}",
+            "run_id": "${{ github.run_id }}",
+            "run_number": "${{ github.run_number }}",
+            "artifacts": []
+          }
+          EOF
+          
+          # Add file listings to manifest
+          if [ -d "organized-artifacts/${{ inputs.artifact-type }}" ]; then
+            files=$(find organized-artifacts/${{ inputs.artifact-type }} -type f -exec basename {} \; | jq -R . | jq -s .)
+            jq ".artifacts = $files" organized-artifacts/manifest.json > temp.json && mv temp.json organized-artifacts/manifest.json
+          fi
+      
+      - name: Compress artifacts
+        run: |
+          cd organized-artifacts
+          tar -czf ../${{ steps.metadata.outputs.artifact-name }}.tar.gz .
+          cd ..
+      
+      - name: Upload compressed artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ steps.metadata.outputs.artifact-name }}
+          path: ${{ steps.metadata.outputs.artifact-name }}.tar.gz
+          retention-days: ${{ inputs.retention-days }}
+      
+      - name: Upload to S3 (if configured)
+        if: env.AWS_ACCESS_KEY_ID != '' && github.actor != 'nektos/act'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          if [ -n "$AWS_ACCESS_KEY_ID" ]; then
+            aws s3 cp ${{ steps.metadata.outputs.artifact-name }}.tar.gz \
+              s3://${{ secrets.ARTIFACTS_BUCKET }}/${{ inputs.project }}/${{ inputs.artifact-type }}/ \
+              --metadata "commit=${{ github.sha }},branch=${{ github.ref_name }},timestamp=${{ steps.metadata.outputs.timestamp }}"
+          fi
+      
+      - name: Clean up old artifacts
+        if: github.actor != 'nektos/act'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const artifacts = await github.rest.actions.listArtifactsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100
+            });
+            
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - 30); // Keep artifacts for 30 days max
+            
+            const projectPrefix = '${{ inputs.project }}-${{ inputs.artifact-type }}';
+            
+            for (const artifact of artifacts.data.artifacts) {
+              if (artifact.name.startsWith(projectPrefix)) {
+                const artifactDate = new Date(artifact.created_at);
+                if (artifactDate < cutoffDate) {
+                  console.log(`Deleting old artifact: ${artifact.name}`);
+                  await github.rest.actions.deleteArtifact({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    artifact_id: artifact.id
+                  });
+                }
+              }
+            }
+      
+      - name: Generate artifact report
+        run: |
+          echo "## Artifact Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Project:** ${{ inputs.project }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Type:** ${{ inputs.artifact-type }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Name:** ${{ steps.metadata.outputs.artifact-name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Retention:** ${{ inputs.retention-days }} days" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f organized-artifacts/manifest.json ]; then
+            echo "### Artifact Contents" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat organized-artifacts/manifest.json >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+  
+  # Local artifact management for act execution
+  local-artifact-management:
+    name: Local Artifact Management
+    runs-on: ubuntu-latest
+    # Only run in act
+    if: github.actor == 'nektos/act'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup local artifact directories
+        run: |
+          echo "Setting up local artifact directories for act"
+          
+          # Create local artifact storage
+          mkdir -p ./local-artifacts/${{ inputs.project }}/${{ inputs.artifact-type }}
+          mkdir -p ./local-artifacts/metadata
+          
+          # Generate timestamp
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          SHORT_SHA=${GITHUB_SHA::7}
+          BRANCH_NAME=${GITHUB_REF_NAME//\//-}
+          
+          echo "timestamp=$TIMESTAMP" >> artifact-vars.env
+          echo "short-sha=$SHORT_SHA" >> artifact-vars.env
+          echo "branch=$BRANCH_NAME" >> artifact-vars.env
+          echo "artifact-name=${{ inputs.project }}-${{ inputs.artifact-type }}-$BRANCH_NAME-$SHORT_SHA" >> artifact-vars.env
+      
+      - name: Organize local artifacts
+        run: |
+          source artifact-vars.env
+          
+          echo "Organizing local artifacts for ${{ inputs.project }} - ${{ inputs.artifact-type }}"
+          
+          case "${{ inputs.artifact-type }}" in
+            "build")
+              if [ "${{ inputs.project }}" == "voice-terminal-hybrid" ]; then
+                echo "Looking for voice-terminal build artifacts..."
+                [ -d "voice-terminal-hybrid/build" ] && cp -r voice-terminal-hybrid/build/* ./local-artifacts/${{ inputs.project }}/${{ inputs.artifact-type }}/ 2>/dev/null || echo "No build directory found"
+                [ -d "voice-terminal-hybrid/dist" ] && cp -r voice-terminal-hybrid/dist/* ./local-artifacts/${{ inputs.project }}/${{ inputs.artifact-type }}/ 2>/dev/null || echo "No dist directory found"
+              elif [ "${{ inputs.project }}" == "electron-shell" ]; then
+                echo "Looking for electron build artifacts..."
+                [ -d "electron-shell/dist" ] && cp -r electron-shell/dist/* ./local-artifacts/${{ inputs.project }}/${{ inputs.artifact-type }}/ 2>/dev/null || echo "No dist directory found"
+              fi
+              ;;
+            "test")
+              echo "Looking for test artifacts..."
+              [ -d "${{ inputs.project }}/test-results" ] && cp -r ${{ inputs.project }}/test-results/* ./local-artifacts/${{ inputs.project }}/${{ inputs.artifact-type }}/ 2>/dev/null || echo "No test results found"
+              [ -d "${{ inputs.project }}/coverage" ] && cp -r ${{ inputs.project }}/coverage/* ./local-artifacts/${{ inputs.project }}/${{ inputs.artifact-type }}/ 2>/dev/null || echo "No coverage found"
+              ;;
+            "release")
+              echo "Looking for release artifacts..."
+              find . -name "*.dmg" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.snap" 2>/dev/null | while read file; do
+                [ -f "$file" ] && cp "$file" ./local-artifacts/${{ inputs.project }}/${{ inputs.artifact-type }}/ 2>/dev/null
+              done || echo "No release artifacts found"
+              ;;
+          esac
+      
+      - name: Create local artifact manifest
+        run: |
+          source artifact-vars.env
+          
+          cat > ./local-artifacts/metadata/manifest-${artifact-name}.json << EOF
+          {
+            "project": "${{ inputs.project }}",
+            "type": "${{ inputs.artifact-type }}",
+            "timestamp": "$timestamp",
+            "commit": "${{ github.sha }}",
+            "branch": "${{ github.ref_name }}",
+            "local_path": "./local-artifacts/${{ inputs.project }}/${{ inputs.artifact-type }}",
+            "act_execution": true,
+            "files": []
+          }
+          EOF
+          
+          # Add file listings to manifest
+          if [ -d "./local-artifacts/${{ inputs.project }}/${{ inputs.artifact-type }}" ]; then
+            files=$(find ./local-artifacts/${{ inputs.project }}/${{ inputs.artifact-type }} -type f -exec basename {} \; 2>/dev/null | sort | jq -R . | jq -s . || echo '[]')
+            jq ".files = $files" ./local-artifacts/metadata/manifest-${artifact-name}.json > temp.json && mv temp.json ./local-artifacts/metadata/manifest-${artifact-name}.json 2>/dev/null || echo "Could not update manifest with file list"
+          fi
+      
+      - name: Generate local artifact summary
+        run: |
+          source artifact-vars.env
+          
+          echo "## Local Artifact Management Summary"
+          echo ""
+          echo "**Project:** ${{ inputs.project }}"
+          echo "**Type:** ${{ inputs.artifact-type }}"
+          echo "**Artifact Name:** ${artifact-name}"
+          echo "**Local Path:** ./local-artifacts/${{ inputs.project }}/${{ inputs.artifact-type }}"
+          echo "**Timestamp:** ${timestamp}"
+          echo ""
+          
+          if [ -d "./local-artifacts/${{ inputs.project }}/${{ inputs.artifact-type }}" ]; then
+            echo "### Artifacts Created:"
+            find ./local-artifacts/${{ inputs.project }}/${{ inputs.artifact-type }} -type f 2>/dev/null | while read file; do
+              size=$(du -h "$file" 2>/dev/null | cut -f1 || echo "?")
+              echo "- $(basename "$file") ($size)"
+            done || echo "No artifacts found"
+          else
+            echo "No artifacts were created (source directories may not exist yet)"
+          fi
+          
+          echo ""
+          echo "### Manifest:"
+          if [ -f "./local-artifacts/metadata/manifest-${artifact-name}.json" ]; then
+            echo '```json'
+            cat ./local-artifacts/metadata/manifest-${artifact-name}.json 2>/dev/null || echo "Could not read manifest"
+            echo '```'
+          fi
+          
+          echo ""
+          echo "**Note:** Artifacts are stored locally for act execution. Use GitHub Actions for remote artifact storage."

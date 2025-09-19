@@ -1,0 +1,32 @@
+# Build outputs
+dist/
+build/
+coverage/
+storybook-static/
+
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+
+# Git
+.git/
+
+# Other
+*.lock
+*.tsbuildinfo

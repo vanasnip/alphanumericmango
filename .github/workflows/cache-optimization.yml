@@ -1,0 +1,201 @@
+# Cache Optimization - Optimized for local execution with act
+#
+# Usage with act (local execution):
+#   Basic cache setup:
+#     act workflow_call
+#   
+#   Skip expensive operations:
+#     act workflow_call -j optimize-local-cache
+#
+# Local optimization features:
+#   - Uses local cache directories for act
+#   - Skips GitHub-specific cache management
+#   - Optimized for offline development
+
+name: Cache Optimization
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * 0' # Weekly cache refresh
+
+env:
+  # Detect act execution
+  ACT_EXECUTION: ${{ github.actor || 'false' }}
+
+jobs:
+  optimize-npm-cache:
+    name: Optimize NPM Cache
+    runs-on: ubuntu-latest
+    # Skip expensive cache optimization in act
+    if: github.actor != 'nektos/act'
+    strategy:
+      matrix:
+        project:
+          - voice-terminal-hybrid
+          - electron-shell
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js with cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ${{ matrix.project }}/package-lock.json
+      
+      - name: Cache node_modules
+        id: cache-nodemodules
+        uses: actions/cache@v3
+        with:
+          path: ${{ matrix.project }}/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles(format('{0}/package-lock.json', matrix.project)) }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      
+      - name: Install dependencies if cache miss
+        if: steps.cache-nodemodules.outputs.cache-hit != 'true'
+        working-directory: ${{ matrix.project }}
+        run: npm ci
+      
+      - name: Cache Playwright browsers
+        if: matrix.project == 'voice-terminal-hybrid'
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('voice-terminal-hybrid/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+      
+      - name: Cache Electron
+        if: matrix.project == 'electron-shell'
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/electron
+          key: ${{ runner.os }}-electron-${{ hashFiles('electron-shell/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-
+      
+      - name: Cache build outputs
+        uses: actions/cache@v3
+        with:
+          path: |
+            ${{ matrix.project }}/dist
+            ${{ matrix.project }}/build
+            ${{ matrix.project }}/.svelte-kit
+          key: ${{ runner.os }}-build-${{ matrix.project }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ matrix.project }}-
+  
+  optimize-workflow-cache:
+    name: Optimize Workflow Cache
+    runs-on: ubuntu-latest
+    # Skip workflow cache optimization in act
+    if: github.actor != 'nektos/act'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup cache for workflow dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.npm
+            ~/.cache/pip
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-workflow-deps-${{ hashFiles('**/package-lock.json', '**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-workflow-deps-
+      
+      - name: Prune old caches
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const caches = await github.rest.actions.getActionsCacheList({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            })
+            
+            for (const cache of caches.data.actions_caches) {
+              const cacheAge = Date.now() - new Date(cache.created_at).getTime()
+              const thirtyDays = 30 * 24 * 60 * 60 * 1000
+              
+              if (cacheAge > thirtyDays) {
+                console.log(`Deleting old cache: ${cache.key}`)
+                await github.rest.actions.deleteActionsCacheById({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  cache_id: cache.id,
+                })
+              }
+            }
+  
+  # Local cache optimization for act execution
+  optimize-local-cache:
+    name: Optimize Local Cache
+    runs-on: ubuntu-latest
+    # Only run in act
+    if: github.actor == 'nektos/act'
+    strategy:
+      matrix:
+        project:
+          - voice-terminal-hybrid
+          - electron-shell
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js for local development
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Setup local cache directories
+        run: |
+          echo "Setting up local cache directories for act"
+          mkdir -p ./.npm-cache
+          mkdir -p ./.playwright-cache
+          mkdir -p ./.electron-cache
+          
+          # Create cache info file
+          cat > ./.cache-info.json << EOF
+          {
+            "project": "${{ matrix.project }}",
+            "node_version": "20",
+            "created": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "act_optimized": true
+          }
+          EOF
+      
+      - name: Cache node_modules locally
+        uses: actions/cache@v3
+        with:
+          path: ${{ matrix.project }}/node_modules
+          key: local-${{ runner.os }}-node-${{ hashFiles(format('{0}/package-lock.json', matrix.project)) }}
+          restore-keys: |
+            local-${{ runner.os }}-node-
+      
+      - name: Install dependencies for local cache
+        working-directory: ${{ matrix.project }}
+        run: |
+          echo "Installing dependencies for local cache optimization"
+          npm install --prefer-offline --no-audit --no-fund
+      
+      - name: Generate cache report
+        run: |
+          echo "## Local Cache Optimization Report"
+          echo ""
+          echo "**Project:** ${{ matrix.project }}"
+          echo "**Date:** $(date)"
+          echo "**Node.js:** 20"
+          echo ""
+          echo "### Cache Directories:"
+          echo "- Node modules: ${{ matrix.project }}/node_modules"
+          if [ "${{ matrix.project }}" = "voice-terminal-hybrid" ]; then
+            echo "- Playwright browsers: ~/.cache/ms-playwright"
+          fi
+          if [ "${{ matrix.project }}" = "electron-shell" ]; then
+            echo "- Electron binaries: ~/.cache/electron"
+          fi
+          echo ""
+          echo "Cache optimization completed for act execution."

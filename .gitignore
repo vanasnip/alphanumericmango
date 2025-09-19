@@ -22,3 +22,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Act (GitHub Actions local testing) files
+.env.ci
+.secrets.ci
+.act-cache/
+/tmp/act-artifacts
+
+# CI Optimization Cache
+.cache/
+.cache/**/*
+!.cache/README.md

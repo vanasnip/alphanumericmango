@@ -7,12 +7,19 @@
     "dev": "npm run build && electron .",
     "build": "tsc",
     "start": "electron .",
-    "package": "electron-builder"
+    "package": "electron-builder",
+    "test": "echo \"No tests configured for electron-shell\" && exit 0",
+    "test:staged": "echo \"No tests configured for electron-shell\" && exit 0",
+    "lint": "echo \"No linting configured for electron-shell\" && exit 0",
+    "lint:staged": "echo \"No linting configured for electron-shell\" && exit 0",
+    "type-check": "tsc --noEmit --incremental --skipLibCheck",
+    "format": "prettier --write ."
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
     "electron": "^28.1.0",
     "electron-builder": "^24.9.1",
+    "prettier": "^3.1.1",
     "typescript": "^5.3.3"
   },
   "dependencies": {

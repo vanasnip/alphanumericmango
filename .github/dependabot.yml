@@ -1,0 +1,97 @@
+version: 2
+updates:
+  # Voice Terminal Hybrid dependencies
+  - package-ecosystem: "npm"
+    directory: "/voice-terminal-hybrid"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "@your-github-username"
+    labels:
+      - "dependencies"
+      - "voice-terminal"
+    groups:
+      svelte:
+        patterns:
+          - "@sveltejs/*"
+          - "svelte*"
+      testing:
+        patterns:
+          - "@playwright/*"
+          - "@testing-library/*"
+          - "vitest*"
+          - "@vitest/*"
+          - "percy*"
+      storybook:
+        patterns:
+          - "@storybook/*"
+          - "storybook"
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+  
+  # Electron Shell dependencies
+  - package-ecosystem: "npm"
+    directory: "/electron-shell"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "@your-github-username"
+    labels:
+      - "dependencies"
+      - "electron"
+    groups:
+      electron:
+        patterns:
+          - "electron*"
+      build-tools:
+        patterns:
+          - "typescript"
+          - "@types/*"
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+  
+  # Voice Terminal Components dependencies
+  - package-ecosystem: "npm"
+    directory: "/voice-terminal-components"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "@your-github-username"
+    labels:
+      - "dependencies"
+      - "components"
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+  
+  # GitHub Actions dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "@your-github-username"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"

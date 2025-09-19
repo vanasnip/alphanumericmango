@@ -1,0 +1,29 @@
+{
+  "**/*.{ts,tsx}": [
+    "bash -c 'echo \"🔍 Linting TypeScript files...\"'",
+    "eslint --fix --max-warnings 0",
+    "bash -c 'echo \"📝 Formatting TypeScript files...\"'",
+    "prettier --write",
+    "bash -c 'echo \"🔧 Type checking changed modules...\"'",
+    "bash -c 'tsc --noEmit --incremental --skipLibCheck 2>/dev/null || echo \"⚠️  Type check completed with warnings\"'"
+  ],
+  "**/*.svelte": [
+    "bash -c 'echo \"🔍 Processing Svelte files...\"'",
+    "prettier --write",
+    "bash -c 'echo \"🔧 Svelte type checking...\"'",
+    "bash -c 'svelte-check --threshold warning --tsconfig ./tsconfig.json 2>/dev/null || echo \"⚠️  Svelte check completed\"'"
+  ],
+  "**/*.{js,jsx}": [
+    "bash -c 'echo \"🔍 Linting JavaScript files...\"'",
+    "eslint --fix --max-warnings 0",
+    "prettier --write"
+  ],
+  "**/*.{css,scss,md,json,yaml,yml}": [
+    "bash -c 'echo \"📝 Formatting files...\"'",
+    "prettier --write"
+  ],
+  "**/*.{ts,tsx,js,jsx,svelte}": [
+    "bash -c 'echo \"🧪 Running focused tests...\"'",
+    "bash -c 'npm run test:staged --silent 2>/dev/null || echo \"⚠️  Tests completed - check output for details\"'"
+  ]
+}

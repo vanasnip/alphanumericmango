@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Fast pre-commit hook - designed to complete in <5 seconds
+# Uses parallel execution and only processes staged files
+
+echo "🚀 Running fast pre-commit checks..."
+
+# Run lint-staged for efficient staging area processing
+npx lint-staged
+
+echo "✅ Pre-commit checks completed!"

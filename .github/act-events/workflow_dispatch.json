@@ -1,0 +1,30 @@
+{
+  "inputs": {
+    "environment": "staging",
+    "deploy_version": "v1.2.3",
+    "run_tests": "true",
+    "notify_slack": "false"
+  },
+  "ref": "refs/heads/main",
+  "repository": {
+    "id": 123456789,
+    "name": "alphanumeric-issue24-ci",
+    "full_name": "owner/alphanumeric-issue24-ci",
+    "owner": {
+      "login": "owner",
+      "id": 12345,
+      "type": "User"
+    },
+    "private": true,
+    "html_url": "https://github.com/owner/alphanumeric-issue24-ci",
+    "description": "Voice Terminal Hybrid Application",
+    "fork": false,
+    "language": "JavaScript",
+    "default_branch": "main"
+  },
+  "sender": {
+    "login": "developer",
+    "id": 67890,
+    "type": "User"
+  }
+}

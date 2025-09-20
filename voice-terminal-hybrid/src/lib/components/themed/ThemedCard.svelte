@@ -66,6 +66,7 @@
     themed-card
     theme-transition
     ${variantClass}
+    ${size || ''}
     ${clickable ? 'clickable' : ''}
     ${!padding ? 'no-padding' : ''}
     ${!shadow ? 'no-shadow' : ''}

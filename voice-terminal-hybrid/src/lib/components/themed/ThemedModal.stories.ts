@@ -389,7 +389,7 @@ export const VoiceTerminalModals: Story = {
         >
           <div style="display: flex; flex-direction: column; gap: 1rem; max-height: 400px; overflow-y: auto;">
             <div style="padding: 1rem; background: var(--color-surface); border-radius: var(--border-radius-md); border-left: 4px solid var(--color-accent);">
-              <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 0.5rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                 <strong>2024-01-15 14:30:22</strong>
                 <span style="color: var(--color-text-muted); font-size: 0.875rem;">Voice Command</span>
               </div>
@@ -397,7 +397,7 @@ export const VoiceTerminalModals: Story = {
             </div>
             
             <div style="padding: 1rem; background: var(--color-surface); border-radius: var(--border-radius-md); border-left: 4px solid var(--color-primary);">
-              <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 0.5rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                 <strong>2024-01-15 14:28:15</strong>
                 <span style="color: var(--color-text-muted); font-size: 0.875rem;">Terminal Command</span>
               </div>
@@ -405,7 +405,7 @@ export const VoiceTerminalModals: Story = {
             </div>
             
             <div style="padding: 1rem; background: var(--color-surface); border-radius: var(--border-radius-md); border-left: 4px solid var(--color-success);">
-              <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 0.5rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                 <strong>2024-01-15 14:25:03</strong>
                 <span style="color: var(--color-text-muted); font-size: 0.875rem;">Query</span>
               </div>
@@ -430,7 +430,7 @@ export const VoiceTerminalModals: Story = {
             <div>
               <h4 style="margin-bottom: 1rem;">Appearance</h4>
               <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                <label style="display: flex; justify-content: between; align-items: center;">
+                <label style="display: flex; justify-content: space-between; align-items: center;">
                   Theme Mode
                   <select style="background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--border-radius-sm); padding: 0.5rem;">
                     <option>Dark</option>
@@ -438,7 +438,7 @@ export const VoiceTerminalModals: Story = {
                     <option>Auto</option>
                   </select>
                 </label>
-                <label style="display: flex; justify-content: between; align-items: center;">
+                <label style="display: flex; justify-content: space-between; align-items: center;">
                   Font Size
                   <select style="background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--border-radius-sm); padding: 0.5rem;">
                     <option>Small</option>

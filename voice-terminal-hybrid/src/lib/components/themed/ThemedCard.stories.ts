@@ -306,7 +306,7 @@ export const Interactive: Story = {
         
         <ThemedCard 
           clickable
-          variant="accent"
+          variant="voice"
           title="Voice Action"
           subtitle="Voice command trigger"
           on:click={() => alert('Voice command triggered!')}
@@ -336,19 +336,19 @@ export const VoiceTerminalCards: Story = {
           size="lg"
         >
           <div style="display: flex; flex-direction: column; gap: 1rem;">
-            <div style="display: flex; justify-content: between; align-items: center;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
               <span>Status:</span>
               <span style="color: var(--color-success); font-weight: bold;">LISTENING</span>
             </div>
-            <div style="display: flex; justify-content: between; align-items: center;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
               <span>Model:</span>
               <span>GPT-4 Turbo</span>
             </div>
-            <div style="display: flex; justify-content: between; align-items: center;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
               <span>Language:</span>
               <span>English (US)</span>
             </div>
-            <div style="display: flex; justify-content: between; align-items: center;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
               <span>Confidence:</span>
               <span style="color: var(--color-accent);">98%</span>
             </div>
@@ -468,19 +468,19 @@ export const VoiceTerminalCards: Story = {
           on:click={() => alert('Opening configuration panel...')}
         >
           <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-            <div style="display: flex; justify-content: between; align-items: center;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
               <span>Theme:</span>
               <span style="color: var(--color-accent);">Dark Mode</span>
             </div>
-            <div style="display: flex; justify-content: between; align-items: center;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
               <span>Voice Commands:</span>
               <span style="color: var(--color-success);">Enabled</span>
             </div>
-            <div style="display: flex; justify-content: between; align-items: center;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
               <span>Auto-save:</span>
               <span style="color: var(--color-success);">Every 30s</span>
             </div>
-            <div style="display: flex; justify-content: between; align-items: center;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
               <span>Debug Mode:</span>
               <span style="color: var(--color-error);">Disabled</span>
             </div>
@@ -587,7 +587,7 @@ export const LayoutExamples: Story = {
           <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
             <ThemedCard variant="settings" title="General Settings" size="lg">
               <div style="display: flex; flex-direction: column; gap: 1rem;">
-                <label style="display: flex; justify-content: between; align-items: center;">
+                <label style="display: flex; justify-content: space-between; align-items: center;">
                   Theme Mode
                   <select style="background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--border-radius-sm); padding: 0.5rem;">
                     <option>Dark</option>
